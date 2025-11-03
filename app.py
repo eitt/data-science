@@ -207,7 +207,10 @@ with tab2:
 
     with col1:
         st.subheader("Controls")
-        degrees = list(range(0, 16))  # <--- THIS IS THE FIX
+        
+        # FIX: Use st.session_state.poly_degree by assigning a key
+        st.slider("Polynomial Degree", 0, 15, 1, key="poly_degree")
+        
         train_pct = st.slider("Training Set Size", 0.6, 0.9, 0.7, 0.05)
         
         # Re-split data only if controls change
@@ -231,14 +234,16 @@ with tab2:
         standardize = st.checkbox("Standardize x (recommended for high degrees)")
 
     # Loop to get errors for all degrees
+    # FIX: Add _metric to cache signature
     @st.cache_data
-    def get_all_errors(train_pct, _x, _y, _seed, _standardize):
-        # We pass _x, _y, _seed, _standardize to make cache aware of them
+    def get_all_errors(train_pct, _x, _y, _seed, _standardize, _metric):
+        # We pass _x, _y, _seed, _standardize, _metric to make cache aware of them
         x_train_loop, x_test_loop, y_train_loop, y_test_loop = train_test_split(
             _x, _y, train_size=train_pct, random_state=_seed
         )
 
-        degrees = list(range(0, 16))  # <--- FIX: Convert range to list
+        # FIX: Convert range to list
+        degrees = list(range(0, 16))
         train_errors = []
         test_errors = []
 
@@ -254,10 +259,11 @@ with tab2:
             y_train_pred = pipeline.predict(x_train_loop.reshape(-1, 1))
             y_test_pred = pipeline.predict(x_test_loop.reshape(-1, 1))
             
-            if metric_choice == "RMSE":
+            # FIX: Use _metric argument
+            if _metric == "RMSE":
                 train_errors.append(np.sqrt(mean_squared_error(y_train_loop, y_train_pred)))
                 test_errors.append(np.sqrt(mean_squared_error(y_test_loop, y_test_pred)))
-            elif metric_choice == "MSE":
+            elif _metric == "MSE":
                 train_errors.append(mean_squared_error(y_train_loop, y_train_pred))
                 test_errors.append(mean_squared_error(y_test_loop, y_test_pred))
             else: # MAE
@@ -266,15 +272,17 @@ with tab2:
         
         return degrees, train_errors, test_errors
 
+    # FIX: Pass metric_choice to the function call
     degrees, train_errors, test_errors = get_all_errors(
-        train_pct, x, y, st.session_state.seed, standardize
+        train_pct, x, y, st.session_state.seed, standardize, metric_choice
     )
 
     with col2:
         st.subheader("Fit Visualization (for selected degree)")
         
         # Fit model for *selected* degree
-        steps_viz = [('poly', PolynomialFeatures(degree=degree))]
+        # FIX: Read degree from session_state
+        steps_viz = [('poly', PolynomialFeatures(degree=st.session_state.poly_degree))]
         if standardize:
             steps_viz.append(('scaler', StandardScaler()))
         steps_viz.append(('model', LinearRegression()))
@@ -290,7 +298,10 @@ with tab2:
         fig_fit.add_trace(go.Scatter(x=x_train_s, y=y_train_s, mode='markers', name='Training Data', marker=dict(color='blue', opacity=0.7)))
         fig_fit.add_trace(go.Scatter(x=x_test_s, y=y_test_s, mode='markers', name='Test Data', marker=dict(color='red', opacity=0.7)))
         fig_fit.add_trace(go.Scatter(x=x, y=y_true, mode='lines', name='True Function (sin(2πx))', line=dict(color='green', dash='dash')))
-        fig_fit.add_trace(go.Scatter(x=x_range.flatten(), y=y_pred_range, mode='lines', name=f'Model (Degree {degree})', line=dict(color='orange', width=3)))
+        
+        # FIX: Read degree from session_state
+        fig_fit.add_trace(go.Scatter(x=x_range.flatten(), y=y_pred_range, mode='lines', name=f'Model (Degree {st.session_state.poly_degree})', line=dict(color='orange', width=3)))
+        
         fig_fit.update_layout(title="Model Fit vs. Data", xaxis_title="x", yaxis_title="y", yaxis_range=[-2.5, 2.5], height=400)
         st.plotly_chart(fig_fit, use_container_width=True)
 
@@ -360,13 +371,32 @@ with tab3:
         # Metrics
         st.subheader("Metrics (at current threshold)")
         m_col1, m_col2 = st.columns(2)
-        m_col1.metric("Accuracy", f"{accuracy_score(y_test, y_pred):.3f}")
-        m_col2.metric("AUC", f"{roc_auc_score(y_test, y_proba):.3f}")
+        
+        # NEW: Added help text
+        m_col1.metric("Accuracy", f"{accuracy_score(y_test, y_pred):.3f}",
+                      help="Overall 'correctness' of the model. Can be misleading if classes are imbalanced.")
+        m_col2.metric("AUC", f"{roc_auc_score(y_test, y_proba):.3f}",
+                      help="Area Under the Curve. 1.0 is a perfect classifier, 0.5 is random chance. Independent of the threshold.")
+        
         m_col3, m_col4 = st.columns(2)
-        m_col3.metric("Precision", f"{precision_score(y_test, y_pred, zero_division=0):.3f}")
-        m_col4.metric("Recall", f"{recall_score(y_test, y_pred, zero_division=0):.3f}")
-        st.metric("F1-Score", f"{f1_score(y_test, y_pred, zero_division=0):.3f}")
+        m_col3.metric("Precision", f"{precision_score(y_test, y_pred, zero_division=0):.3f}",
+                      help="Of all '1' predictions, how many were correct? (TP / (TP + FP))")
+        m_col4.metric("Recall", f"{recall_score(y_test, y_pred, zero_division=0):.3f}",
+                      help="Of all actual '1's, how many did we find? (TP / (TP + FN))")
+        
+        st.metric("F1-Score", f"{f1_score(y_test, y_pred, zero_division=0):.3f}",
+                  help="The harmonic mean of Precision and Recall. Good for imbalanced classes.")
 
+        # NEW: Added performance tip
+        st.info(
+            """
+            **Trade-off Tip:**
+            * Move the **Decision Threshold** slider.
+            * A **higher** threshold (> 0.5) makes the model more "cautious" about predicting `1`. This **increases Precision** (fewer False Positives) but **decreases Recall** (more False Negatives).
+            * A **lower** threshold (< 0.5) makes the model "eager" to predict `1`. This **increases Recall** (fewer False Negatives) but **decreases Precision** (more False Positives).
+            """
+        )
+        
         st.subheader("Model Coefficients")
         st.write(f"Feature 1 Coef: {model.coef_[0][0]:.3f}")
         st.write(f"Feature 2 Coef: {model.coef_[0][1]:.3f}")
@@ -454,5 +484,18 @@ with tab3:
                            labels=dict(x="Predicted", y="Actual"), 
                            x=['Pred 0', 'Pred 1'], y=['True 0', 'True 1'],
                            color_continuous_scale='Blues')
-        fig_cm.update_layout(title="Confusion Matrix", height=400)
+        fig_cm.update_layout(title="Confusion Matrix (at threshold)", height=400)
         st.plotly_chart(fig_cm, use_container_width=True)
+    
+    # NEW: Added explanation for Confusion Matrix
+    st.markdown(
+        """
+        **How to Read the Confusion Matrix (for the current threshold):**
+        * **Top-Left (True 0):** Correctly predicted '0' (True Negative).
+        * **Bottom-Right (True 1):** Correctly predicted '1' (True Positive).
+        * **Top-Right (False 1):** Wrongly predicted '1' (False Positive - Type I Error).
+        * **Bottom-Left (False 0):** Wrongly predicted '0' (False Negative - Type II Error).
+        
+        A good model maximizes the numbers on the diagonal (top-left to bottom-right).
+        """
+    )
