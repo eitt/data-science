@@ -207,7 +207,7 @@ with tab2:
 
     with col1:
         st.subheader("Controls")
-        degree = st.slider("Polynomial Degree", 0, 15, 1)
+        degrees = list(range(0, 16))  # <--- THIS IS THE FIX
         train_pct = st.slider("Training Set Size", 0.6, 0.9, 0.7, 0.05)
         
         # Re-split data only if controls change
@@ -238,7 +238,7 @@ with tab2:
             _x, _y, train_size=train_pct, random_state=_seed
         )
 
-        degrees = range(0, 16)
+        degrees = list(range(0, 16))  # <--- FIX: Convert range to list
         train_errors = []
         test_errors = []
 
