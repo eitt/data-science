@@ -343,7 +343,7 @@ with tab3:
     with plot_col2:
         precision, recall, _ = precision_recall_curve(y_test, y_proba)
         fig_pr = px.line(x=recall, y=precision, title="Precision-Recall Curve")
-        fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=4.00)
+        fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=400)
         st.plotly_chart(fig_pr, use_container_width=True)
     with plot_col3:
         cm = confusion_matrix(y_test, y_pred)
