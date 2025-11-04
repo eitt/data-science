@@ -537,7 +537,23 @@ with tab5:
     fig_data = go.Figure()
     fig_data.add_trace(go.Scatter(x=train_data.index, y=train_data, name="Train Data", line=dict(color='blue')))
     fig_data.add_trace(go.Scatter(x=test_data.index, y=test_data, name="Test Data (Actual)", line=dict(color='orange')))
-    fig_data.add_vline(x=train_data.index[-1], line=dict(color='gray', dash='dot'), annotation_text="Train/Test Split")
+    # Get the split date
+    split_date = train_data.index[-1]
+    
+    # Step 1: Add the line
+    fig_data.add_vline(x=split_date, line=dict(color='gray', dash='dot'))
+    
+    # Step 2: Add the annotation manually
+    fig_data.add_annotation(
+        x=split_date,
+        y=1.0,                   # Position at the top
+        yref="paper",            # Use plot's y-axis percentage
+        text="Train/Test Split",
+        showarrow=False,
+        xanchor="left",
+        yanchor="top",
+        xshift=5                 # Nudge it 5px to the right
+    )
     fig_data.update_layout(title=f"Data: {dataset}", xaxis_title="Date", yaxis_title="Value")
     st.plotly_chart(fig_data, use_container_width=True)
 
