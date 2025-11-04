@@ -87,7 +87,6 @@ def get_poly_data(n_samples, noise, seed):
 @st.cache_data
 def get_logistic_data(n_samples, noise, seed):
     np.random.seed(seed)
-    # Using make_classification for 2 distinct, slightly overlapping clusters
     X, y = make_classification(
         n_samples=n_samples,
         n_features=2,
@@ -95,16 +94,38 @@ def get_logistic_data(n_samples, noise, seed):
         n_informative=2,
         n_clusters_per_class=1,
         flip_y=0.01,
-        class_sep=0.5 + (1.5-noise), # Noise slider controls class separation
+        class_sep=0.5 + (1.5-noise),
         random_state=seed,
     )
     return X, y
 
+# NEW: Time Series Data Function
+@st.cache_data
+def get_timeseries_data(n_samples, noise, seed):
+    np.random.seed(seed)
+    time = np.arange(n_samples)
+    seasonality = np.sin(2 * np.pi * time / 50) * 10
+    trend = time * 0.5
+    y = trend + seasonality + np.random.randn(n_samples) * (noise * 5)
+    df = pd.DataFrame({'time': time, 'y': y})
+    df['date'] = pd.to_datetime('2020-01-01') + pd.to_timedelta(df['time'], unit='D')
+    df = df.set_index('date')
+    return df
+
+# NEW: Time Series Feature Engineering Function
+def create_lagged_features(df, lags):
+    df_new = df.copy()
+    for i in range(1, lags + 1):
+        df_new[f'y_lag_{i}'] = df_new['y'].shift(i)
+    df_new = df_new.dropna()
+    return df_new
+
 # --- Main App ---
 st.title("Understanding Regression: Linear, Polynomial, and Logistic")
 
-tab1, tab2, tab3 = st.tabs(
-    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression"]
+# MODIFIED: Added fourth tab
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series & Data Leaks"]
 )
 
 # ==============================================================================
@@ -136,7 +157,6 @@ with tab1:
         sse = np.sum(residuals**2)
         sst = np.sum((y - y.mean())**2)
         
-        # Avoid division by zero if SST is 0
         r2 = 1 - (sse / sst) if sst != 0 else 0
         rmse = np.sqrt(sse / len(y))
         
@@ -156,24 +176,17 @@ with tab1:
     with col2:
         # Visualization
         fig = go.Figure()
-        
-        # Scatter plot of data
         fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Data (x, y)'))
-        
-        # Manual fit line
         fig.add_trace(go.Scatter(x=x, y=y_pred, mode='lines', name='Manual Fit (ŷ)', line=dict(color='orange', width=2)))
         
-        # True line
         if show_true_line:
             y_true_line = true_b0 + true_b1 * x
             fig.add_trace(go.Scatter(x=x, y=y_true_line, mode='lines', name='True Line', line=dict(color='blue', dash='dash', width=2)))
         
-        # OLS line (if computed)
         if 'ols_b0' in st.session_state:
             y_ols_line = st.session_state.ols_b0 + st.session_state.ols_b1 * x
             fig.add_trace(go.Scatter(x=x, y=y_ols_line, mode='lines', name='OLS Fit', line=dict(color='green', dash='dot', width=3)))
 
-        # Residuals
         if show_residuals:
             for i in range(len(x)):
                 fig.add_shape(
@@ -207,18 +220,13 @@ with tab2:
 
     with col1:
         st.subheader("Controls")
-        
-        # FIX: Use st.session_state.poly_degree by assigning a key
         st.slider("Polynomial Degree", 0, 15, 1, key="poly_degree")
-        
         train_pct = st.slider("Training Set Size", 0.6, 0.9, 0.7, 0.05)
         
-        # Re-split data only if controls change
         x_train, x_test, y_train, y_test = train_test_split(
             x, y, train_size=train_pct, random_state=st.session_state.seed
         )
         
-        # Sort for plotting
         sort_idx = np.argsort(x_train)
         x_train_s = x_train[sort_idx]
         y_train_s = y_train[sort_idx]
@@ -233,16 +241,12 @@ with tab2:
         )
         standardize = st.checkbox("Standardize x (recommended for high degrees)")
 
-    # Loop to get errors for all degrees
-    # FIX: Add _metric to cache signature
     @st.cache_data
     def get_all_errors(train_pct, _x, _y, _seed, _standardize, _metric):
-        # We pass _x, _y, _seed, _standardize, _metric to make cache aware of them
         x_train_loop, x_test_loop, y_train_loop, y_test_loop = train_test_split(
             _x, _y, train_size=train_pct, random_state=_seed
         )
 
-        # FIX: Convert range to list
         degrees = list(range(0, 16))
         train_errors = []
         test_errors = []
@@ -259,7 +263,6 @@ with tab2:
             y_train_pred = pipeline.predict(x_train_loop.reshape(-1, 1))
             y_test_pred = pipeline.predict(x_test_loop.reshape(-1, 1))
             
-            # FIX: Use _metric argument
             if _metric == "RMSE":
                 train_errors.append(np.sqrt(mean_squared_error(y_train_loop, y_train_pred)))
                 test_errors.append(np.sqrt(mean_squared_error(y_test_loop, y_test_pred)))
@@ -272,7 +275,6 @@ with tab2:
         
         return degrees, train_errors, test_errors
 
-    # FIX: Pass metric_choice to the function call
     degrees, train_errors, test_errors = get_all_errors(
         train_pct, x, y, st.session_state.seed, standardize, metric_choice
     )
@@ -280,8 +282,6 @@ with tab2:
     with col2:
         st.subheader("Fit Visualization (for selected degree)")
         
-        # Fit model for *selected* degree
-        # FIX: Read degree from session_state
         steps_viz = [('poly', PolynomialFeatures(degree=st.session_state.poly_degree))]
         if standardize:
             steps_viz.append(('scaler', StandardScaler()))
@@ -290,7 +290,6 @@ with tab2:
         pipeline_viz = Pipeline(steps_viz)
         pipeline_viz.fit(x_train.reshape(-1, 1), y_train)
 
-        # Create smooth line for prediction
         x_range = np.linspace(0, 1, 100).reshape(-1, 1)
         y_pred_range = pipeline_viz.predict(x_range)
         
@@ -298,8 +297,6 @@ with tab2:
         fig_fit.add_trace(go.Scatter(x=x_train_s, y=y_train_s, mode='markers', name='Training Data', marker=dict(color='blue', opacity=0.7)))
         fig_fit.add_trace(go.Scatter(x=x_test_s, y=y_test_s, mode='markers', name='Test Data', marker=dict(color='red', opacity=0.7)))
         fig_fit.add_trace(go.Scatter(x=x, y=y_true, mode='lines', name='True Function (sin(2πx))', line=dict(color='green', dash='dash')))
-        
-        # FIX: Read degree from session_state
         fig_fit.add_trace(go.Scatter(x=x_range.flatten(), y=y_pred_range, mode='lines', name=f'Model (Degree {st.session_state.poly_degree})', line=dict(color='orange', width=3)))
         
         fig_fit.update_layout(title="Model Fit vs. Data", xaxis_title="x", yaxis_title="y", yaxis_range=[-2.5, 2.5], height=400)
@@ -310,7 +307,6 @@ with tab2:
         fig_err.add_trace(go.Scatter(x=degrees, y=train_errors, mode='lines+markers', name='Train Error'))
         fig_err.add_trace(go.Scatter(x=degrees, y=test_errors, mode='lines+markers', name='Test Error'))
         
-        # Highlight the minimum test error
         min_test_err_idx = np.argmin(test_errors)
         min_test_err_deg = degrees[min_test_err_idx]
         min_test_err_val = test_errors[min_test_err_idx]
@@ -338,12 +334,10 @@ with tab3:
         st.session_state.n_samples, st.session_state.noise, st.session_state.seed
     )
     
-    # Split data
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.3, random_state=st.session_state.seed, stratify=y
     )
     
-    # Scale features
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
@@ -360,19 +354,15 @@ with tab3:
         )
         threshold = st.slider("Decision Threshold", 0.0, 1.0, 0.5, 0.01)
         
-        # Fit model
         model = LogisticRegression(C=C, random_state=st.session_state.seed, solver='liblinear')
         model.fit(X_train_scaled, y_train)
         
-        # Get probabilities and predictions
         y_proba = model.predict_proba(X_test_scaled)[:, 1]
         y_pred = (y_proba >= threshold).astype(int)
         
-        # Metrics
         st.subheader("Metrics (at current threshold)")
         m_col1, m_col2 = st.columns(2)
         
-        # NEW: Added help text
         m_col1.metric("Accuracy", f"{accuracy_score(y_test, y_pred):.3f}",
                       help="Overall 'correctness' of the model. Can be misleading if classes are imbalanced.")
         m_col2.metric("AUC", f"{roc_auc_score(y_test, y_proba):.3f}",
@@ -387,7 +377,6 @@ with tab3:
         st.metric("F1-Score", f"{f1_score(y_test, y_pred, zero_division=0):.3f}",
                   help="The harmonic mean of Precision and Recall. Good for imbalanced classes.")
 
-        # NEW: Added performance tip
         st.info(
             """
             **Trade-off Tip:**
@@ -405,25 +394,21 @@ with tab3:
     with col2:
         st.subheader("Decision Boundary and Test Data")
         
-        # Create meshgrid
         x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
         y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
         xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02))
         
-        # Predict on grid (must scale grid points)
         grid_scaled = scaler.transform(np.c_[xx.ravel(), yy.ravel()])
         Z = model.predict_proba(grid_scaled)[:, 1]
         Z = Z.reshape(xx.shape)
         
-        # Plot data points
         df_test = pd.DataFrame(X_test, columns=['Feature 1', 'Feature 2'])
         df_test['Class'] = y_test
-        df_test['Class'] = df_test['Class'].astype(str) # For discrete colors
+        df_test['Class'] = df_test['Class'].astype(str)
         
         fig_bound = px.scatter(df_test, x='Feature 1', y='Feature 2', color='Class',
                                color_discrete_map={'0': 'blue', '1': 'red'})
         
-        # Add decision boundary contour
         fig_bound.add_trace(
             go.Contour(
                 x=np.arange(x_min, x_max, 0.02),
@@ -431,15 +416,12 @@ with tab3:
                 z=Z,
                 name="Prob(y=1)",
                 showscale=False,
-                contours=dict(
-                    start=0, end=1, size=0.1,
-                ),
+                contours=dict(start=0, end=1, size=0.1),
                 opacity=0.5,
                 line_width=0,
             )
         )
         
-        # Add contour for the *current threshold*
         fig_bound.add_trace(
             go.Contour(
                 x=np.arange(x_min, x_max, 0.02),
@@ -447,9 +429,7 @@ with tab3:
                 z=Z,
                 showscale=False,
                 contours_coloring='lines',
-                contours=dict(
-                    start=threshold, end=threshold, size=0
-                ),
+                contours=dict(start=threshold, end=threshold, size=0),
                 line=dict(color='black', width=3, dash='dash'),
                 name=f"Threshold ({threshold})"
             )
@@ -458,12 +438,10 @@ with tab3:
         fig_bound.update_layout(title="Decision Boundary", height=500)
         st.plotly_chart(fig_bound, use_container_width=True)
 
-    # --- Row for ROC, PR, and Confusion Matrix ---
     st.subheader("Model Performance Curves")
     plot_col1, plot_col2, plot_col3 = st.columns(3)
     
     with plot_col1:
-        # ROC Curve
         fpr, tpr, _ = roc_curve(y_test, y_proba)
         fig_roc = px.area(x=fpr, y=tpr, title=f"ROC Curve (AUC={roc_auc_score(y_test, y_proba):.3f})")
         fig_roc.add_shape(type='line', x0=0, y0=0, x1=1, y1=1, line=dict(color='Gray', dash='dash'))
@@ -471,14 +449,12 @@ with tab3:
         st.plotly_chart(fig_roc, use_container_width=True)
         
     with plot_col2:
-        # Precision-Recall Curve
         precision, recall, _ = precision_recall_curve(y_test, y_proba)
         fig_pr = px.line(x=recall, y=precision, title="Precision-Recall Curve")
         fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=400)
         st.plotly_chart(fig_pr, use_container_width=True)
         
     with plot_col3:
-        # Confusion Matrix
         cm = confusion_matrix(y_test, y_pred)
         fig_cm = px.imshow(cm, text_auto=True, 
                            labels=dict(x="Predicted", y="Actual"), 
@@ -487,7 +463,6 @@ with tab3:
         fig_cm.update_layout(title="Confusion Matrix (at threshold)", height=400)
         st.plotly_chart(fig_cm, use_container_width=True)
     
-    # NEW: Added explanation for Confusion Matrix
     st.markdown(
         """
         **How to Read the Confusion Matrix (for the current threshold):**
@@ -499,3 +474,111 @@ with tab3:
         A good model maximizes the numbers on the diagonal (top-left to bottom-right).
         """
     )
+
+# ==============================================================================
+# --- NEW: Tab 4: Time Series & Data Leaks ---
+# ==============================================================================
+with tab4:
+    st.header("Tab 4: Time Series & Data Leaks")
+    st.markdown(
+        """
+        This tab demonstrates a critical concept in time series forecasting: **data leaks**.
+        A data leak occurs when your model is trained on information that would not be available
+        at the time of prediction. The most common leak is **shuffling data** before splitting.
+        """
+    )
+
+    # Controls
+    n_lags = st.slider("Number of Lagged Features", 1, 10, 3,
+                       help="How many previous time steps to use as features? (e.g., lag=3 means use y(t-1), y(t-2), y(t-3) to predict y(t))")
+    
+    split_pct = st.slider("Train/Test Split (Time-Based)", 0.6, 0.9, 0.7, 0.05,
+                          help="The point in time to split the data. e.g., 0.7 means use first 70% for training, last 30% for testing.")
+    
+    # Generate data (using global noise, but fixed samples for a good demo)
+    df_ts = get_timeseries_data(n_samples=300, noise=st.session_state.noise, seed=st.session_state.seed)
+    
+    st.subheader("1. Illustrative Time Series Data")
+    st.markdown("This is our synthetic data, which includes a trend, seasonality, and noise.")
+    st.plotly_chart(px.line(df_ts, y='y', title='Synthetic Time Series Data'), use_container_width=True)
+
+    # --- Feature Engineering ---
+    df_lagged = create_lagged_features(df_ts.copy(), lags=n_lags)
+    # We must drop the 'time' column as it's a perfect predictor and a form of leak
+    X_features = df_lagged.drop(['y', 'time'], axis=1)
+    y_labels = df_lagged['y']
+
+    st.subheader("2. Performance Comparison: Data Leak vs. Correct Method")
+    st.markdown("We will train two models. One with a data leak, and one the correct way.")
+    
+    col_leak, col_correct = st.columns(2)
+
+    # --- The "Wrong" Way (Data Leak) ---
+    with col_leak:
+        st.error("The Wrong Way: Random Split (Data Leak)")
+        
+        # The LEAK: We randomly shuffle the data.
+        X_train_l, X_test_l, y_train_l, y_test_l = train_test_split(
+            X_features, y_labels, test_size=0.3, random_state=st.session_state.seed, shuffle=True
+        )
+        
+        model_l = LinearRegression()
+        model_l.fit(X_train_l, y_train_l)
+        pred_l = model_l.predict(X_test_l)
+        
+        rmse_l = np.sqrt(mean_squared_error(y_test_l, pred_l))
+        st.metric("Deceptive RMSE (Random Split)", f"{rmse_l:.3f}")
+        st.markdown(
+            """
+            This RMSE is **deceptively low**. By shuffling, the model trains on data points
+            from the future (e.g., using a value from 'Day 50' to predict 'Day 10').
+            This is a classic data leak.
+            """
+        )
+
+    # --- The "Right" Way (Time Split) ---
+    with col_correct:
+        st.success("The Correct Way: Time-Based Split")
+        
+        # The FIX: We split the data based on time.
+        split_point = int(len(X_features) * split_pct)
+        
+        X_train_c = X_features.iloc[:split_point]
+        y_train_c = y_labels.iloc[:split_point]
+        X_test_c = X_features.iloc[split_point:]
+        y_test_c = y_labels.iloc[split_point:]
+        
+        model_c = LinearRegression()
+        model_c.fit(X_train_c, y_train_c)
+        pred_c = model_c.predict(X_test_c)
+        
+        rmse_c = np.sqrt(mean_squared_error(y_test_c, pred_c))
+        st.metric("Realistic RMSE (Time Split)", f"{rmse_c:.3f}")
+        st.markdown(
+            """
+            This RMSE is **much higher** and represents the *true* performance.
+            The model was trained *only* on past data (the first 70%) and tested *only*
+            on future data (the last 30%).
+            """
+        )
+    
+    st.subheader("3. Visualization of the Correct Model")
+    st.markdown("This plot shows how our *correctly* trained model's predictions line up against the actual test data.")
+
+    # Create plot dataframe
+    df_train_plot = df_lagged.iloc[:split_point]
+    df_test_plot = df_lagged.iloc[split_point:].copy()
+    df_test_plot['prediction'] = pred_c
+    
+    fig_ts = go.Figure()
+    fig_ts.add_trace(go.Scatter(x=df_train_plot.index, y=df_train_plot['y'], name='Train Data', line=dict(color='blue')))
+    fig_ts.add_trace(go.Scatter(x=df_test_plot.index, y=df_test_plot['y'], name='Test Data (Actual)', line=dict(color='orange')))
+    fig_ts.add_trace(go.Scatter(x=df_test_plot.index, y=df_test_plot['prediction'], name='Model Prediction', line=dict(color='red', dash='dash')))
+    
+    # Add vertical line for split point
+    split_date = df_lagged.index[split_point]
+    fig_ts.add_vline(x=split_date, line=dict(color='gray', dash='dot'),
+                     annotation_text="Train/Test Split", annotation_position="top left")
+    
+    fig_ts.update_layout(title="Time Series Forecast (Correct Method)", xaxis_title="Date", yaxis_title="Value")
+    st.plotly_chart(fig_ts, use_container_width=True)
