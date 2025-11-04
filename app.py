@@ -99,7 +99,7 @@ def get_logistic_data(n_samples, noise, seed):
     )
     return X, y
 
-# NEW: Time Series Data Function
+# Time Series Data Function
 @st.cache_data
 def get_timeseries_data(n_samples, noise, seed):
     np.random.seed(seed)
@@ -112,7 +112,7 @@ def get_timeseries_data(n_samples, noise, seed):
     df = df.set_index('date')
     return df
 
-# NEW: Time Series Feature Engineering Function
+# Time Series Feature Engineering Function
 def create_lagged_features(df, lags):
     df_new = df.copy()
     for i in range(1, lags + 1):
@@ -123,9 +123,8 @@ def create_lagged_features(df, lags):
 # --- Main App ---
 st.title("Understanding Regression: Linear, Polynomial, and Logistic")
 
-# MODIFIED: Added fourth tab
 tab1, tab2, tab3, tab4 = st.tabs(
-    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series & Data Leaks"]
+    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series Forecasting"]
 )
 
 # ==============================================================================
@@ -476,41 +475,82 @@ with tab3:
     )
 
 # ==============================================================================
-# --- NEW: Tab 4: Time Series & Data Leaks ---
+# --- Tab 4: Time Series Forecasting ---
 # ==============================================================================
 with tab4:
-    st.header("Tab 4: Time Series & Data Leaks")
+    st.header("Tab 4: Time Series Forecasting")
     st.markdown(
         """
-        This tab demonstrates a critical concept in time series forecasting: **data leaks**.
-        A data leak occurs when your model is trained on information that would not be available
-        at the time of prediction. The most common leak is **shuffling data** before splitting.
+        This tab introduces time series forecasting. We will cover the mathematical
+        foundations, compare common models, and demonstrate a critical pitfall: **data leaks**.
         """
     )
 
-    # Controls
+    # --- Generate Data ---
+    df_ts = get_timeseries_data(n_samples=300, noise=st.session_state.noise, seed=st.session_state.seed)
+
+    st.subheader("1. Illustrative Time Series Data")
+    st.markdown("This is our synthetic data, which includes a trend, seasonality, and noise.")
+    st.plotly_chart(px.line(df_ts, y='y', title='Synthetic Time Series Data'), use_container_width=True)
+
+    # --- NEW: Mathematical Foundations ---
+    st.subheader("2. Mathematical Foundations")
+    st.markdown(
+        """
+        At its core, time series analysis is about decomposing a signal into predictable components.
+        A common model assumes the value $Y_t$ at time $t$ is a combination of:
+        
+        1.  **Trend ($T_t$):** The long-term direction (e.g., "sales are growing 5% per year").
+        2.  **Seasonality ($S_t$):** A repeating, fixed-period pattern (e.g., "sales spike every December").
+        3.  **Residual/Noise ($\epsilon_t$):** The random, unpredictable part.
+        
+        **Models:**
+        * **Additive Model:** $Y_t = T_t + S_t + \epsilon_t$ (Seasonality is constant)
+        * **Multiplicative Model:** $Y_t = T_t \times S_t \times \epsilon_t$ (Seasonality scales with trend)
+        
+        **Key Concepts:**
+        * **Stationarity:** A series is stationary if its statistical properties (mean, variance) are constant over time. Most models *require* stationarity. We often achieve this by **differencing** (e.g., $y'_t = y_t - y_{t-1}$) to remove the trend.
+        * **Autocorrelation (ACF):** The correlation of the series with its own past values (lags). This is the *most important concept*. It tells us if $y_{t-1}$ is useful for predicting $y_t$. The **lagged features** in the demo below are a direct application of this idea.
+        """
+    )
+    
+    # --- NEW: Model Comparison ---
+    st.subheader("3. Comparison of Time Series Models")
+    st.markdown(
+        """
+        There are two main approaches: classical statistical models and modern machine learning models.
+        The demo below uses a simple `LinearRegression`, which is an ML approach.
+        """
+    )
+    st.markdown(
+        """
+| Model | Core Idea | Handles | Pros | Cons |
+| :--- | :--- | :--- | :--- | :--- |
+| **ARIMA** | A statistical model that uses past values (AR) and past errors (MA) on a differenced (I) series. | Linear patterns, clear seasonality. | **Highly interpretable**, statistically robust, works on small data. | **Struggles with non-linear** patterns. Requires data to be stationary. |
+| **Neural Networks (RNN/LSTM)** | Sequential models with "memory" (cells) that read the data in order. | **Non-linear patterns**, long-term dependencies, multivariate data. | **State-of-the-art** for complex, large datasets (e.g., language, stock prices). | **Black box** (low interpretability), data-hungry, computationally expensive. |
+| **SVM (SVR)** | (Support Vector Regression) Fits a flexible "tube" around the data points. | Non-linear patterns (via kernels), high-dimensional features. | Robust to outliers, effective with kernels. | Less common for TS. Can be slow. **Hard to interpret**. |
+| **Decision Trees (RF/GBM)** | Uses lagged values as features to make splits (e.g., "if $y_{t-1} > 10$, then..."). | Non-linear interactions, complex feature sets. | Interpretable (feature importance), robust. | **CANNOT EXTRAPOLATE**. Will never predict a value outside its training range. Useless for series with a strong trend. |
+        """
+    )
+    
+    # --- Renumbered: Data Leak Demo ---
+    st.subheader("4. Performance Comparison: Data Leak vs. Correct Method")
+    st.markdown("Now, let's use a simple `LinearRegression` to demonstrate a common pitfall.")
+
+    # --- Controls ---
     n_lags = st.slider("Number of Lagged Features", 1, 10, 3,
                        help="How many previous time steps to use as features? (e.g., lag=3 means use y(t-1), y(t-2), y(t-3) to predict y(t))")
     
     split_pct = st.slider("Train/Test Split (Time-Based)", 0.6, 0.9, 0.7, 0.05,
                           help="The point in time to split the data. e.g., 0.7 means use first 70% for training, last 30% for testing.")
     
-    # Generate data (using global noise, but fixed samples for a good demo)
-    df_ts = get_timeseries_data(n_samples=300, noise=st.session_state.noise, seed=st.session_state.seed)
-    
-    st.subheader("1. Illustrative Time Series Data")
-    st.markdown("This is our synthetic data, which includes a trend, seasonality, and noise.")
-    st.plotly_chart(px.line(df_ts, y='y', title='Synthetic Time Series Data'), use_container_width=True)
-
     # --- Feature Engineering ---
     df_lagged = create_lagged_features(df_ts.copy(), lags=n_lags)
     # We must drop the 'time' column as it's a perfect predictor and a form of leak
     X_features = df_lagged.drop(['y', 'time'], axis=1)
     y_labels = df_lagged['y']
-
-    st.subheader("2. Performance Comparison: Data Leak vs. Correct Method")
-    st.markdown("We will train two models. One with a data leak, and one the correct way.")
     
+    st.markdown("We will train two models. One with a data leak, and one the correct way.")
     col_leak, col_correct = st.columns(2)
 
     # --- The "Wrong" Way (Data Leak) ---
@@ -562,7 +602,8 @@ with tab4:
             """
         )
     
-    st.subheader("3. Visualization of the Correct Model")
+    # --- Renumbered: Visualization ---
+    st.subheader("5. Visualization of the Correct Model")
     st.markdown("This plot shows how our *correctly* trained model's predictions line up against the actual test data.")
 
     # Create plot dataframe
@@ -578,19 +619,17 @@ with tab4:
     # Add vertical line for split point
     split_date = df_lagged.index[split_point]
     
-    # Step 1: Add the line
+    # FIX: Separate add_vline and add_annotation
     fig_ts.add_vline(x=split_date, line=dict(color='gray', dash='dot'))
-
-    # Step 2: Add the annotation manually
     fig_ts.add_annotation(
-        x=split_date,            # Position at the split date
-        y=1.0,                   # Position at the top of the plot
-        yref="paper",            # Use plot's coordinate system for y
+        x=split_date,
+        y=1.0,
+        yref="paper",
         text="Train/Test Split",
         showarrow=False,
-        xanchor="left",          # Anchor the text to the left
-        yanchor="top",           # Anchor the text to the top
-        xshift=5                 # Shift 5 pixels right to not overlap the line
+        xanchor="left",
+        yanchor="top",
+        xshift=5
     )
     
     fig_ts.update_layout(title="Time Series Forecast (Correct Method)", xaxis_title="Date", yaxis_title="Value")
