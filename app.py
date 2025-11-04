@@ -25,12 +25,12 @@ from sklearn.metrics import (
 )
 from sklearn.datasets import make_classification
 
-# NEW: Imports for Tab 5
+# NEW: Imports for Tab 5 (using statsmodels)
 try:
-    from pmdarima import auto_arima
-    from pmdarima.datasets import load_airpassengers
+    from statsmodels.tsa.statespace.sarimax import SARIMAX
+    import statsmodels.api as sm
 except ImportError:
-    st.error("Please install 'pmdarima' and 'statsmodels' to run the Time Series Playground.")
+    st.error("Please ensure 'statsmodels' is installed.")
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -43,7 +43,6 @@ st.set_page_config(
 with st.sidebar:
     st.header("Global Controls")
     
-    # Use session state for persistent controls
     if "seed" not in st.session_state:
         st.session_state.seed = 42
     if "n_samples" not in st.session_state:
@@ -80,8 +79,7 @@ np.random.seed(st.session_state.seed)
 @st.cache_data
 def get_linear_data(n_samples, noise, seed):
     np.random.seed(seed)
-    true_b0 = 2
-    true_b1 = 3
+    true_b0, true_b1 = 2, 3
     x = np.random.rand(n_samples)
     y = true_b0 + true_b1 * x + np.random.randn(n_samples) * noise
     return x, y, true_b0, true_b1
@@ -98,13 +96,8 @@ def get_poly_data(n_samples, noise, seed):
 def get_logistic_data(n_samples, noise, seed):
     np.random.seed(seed)
     X, y = make_classification(
-        n_samples=n_samples,
-        n_features=2,
-        n_redundant=0,
-        n_informative=2,
-        n_clusters_per_class=1,
-        flip_y=0.01,
-        class_sep=0.5 + (1.5-noise),
+        n_samples=n_samples, n_features=2, n_redundant=0, n_informative=2,
+        n_clusters_per_class=1, flip_y=0.01, class_sep=0.5 + (1.5 - noise),
         random_state=seed,
     )
     return X, y
@@ -350,7 +343,7 @@ with tab3:
     with plot_col2:
         precision, recall, _ = precision_recall_curve(y_test, y_proba)
         fig_pr = px.line(x=recall, y=precision, title="Precision-Recall Curve")
-        fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=400)
+        fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=4.00)
         st.plotly_chart(fig_pr, use_container_width=True)
     with plot_col3:
         cm = confusion_matrix(y_test, y_pred)
@@ -432,14 +425,17 @@ with tab4:
     st.plotly_chart(fig_ts, use_container_width=True)
 
 # ==============================================================================
-# --- NEW: Tab 5: Time Series Model Playground ---
+# --- NEW: Tab 5: Time Series Model Playground (No pmdarima) ---
 # ==============================================================================
 # Helper Functions for Tab 5
 @st.cache_data
 def get_playground_data(dataset_name):
     if dataset_name == "Air Passengers (Real)":
-        data = load_airpassengers(as_series=True)
-        data.index = pd.to_datetime(data.index)
+        # Load from statsmodels
+        data_df = sm.datasets.airpassengers.load_pandas().data
+        data = data_df['value']
+        data.index = pd.to_datetime(data_df['date'])
+        data.name = 'y'
     elif dataset_name == "Stationary (No Trend)":
         time_idx = np.arange(200)
         seasonality = np.sin(2 * np.pi * time_idx / 12) * 20
@@ -451,22 +447,27 @@ def get_playground_data(dataset_name):
         data = df['y']
     return data
 
+# REPLACED auto_arima with SARIMAX
 @st.cache_data
-def fit_auto_arima(data, seasonal_period):
+def fit_sarimax(data, seasonal_period):
     start_time = time.time()
-    model = auto_arima(
+    # We're hardcoding a common SARIMA order (p,d,q) (P,D,Q,m)
+    # This is a reasonable default for demonstration
+    model = SARIMAX(
         data,
-        seasonal=True,
-        m=seasonal_period,
-        stepwise=True,
-        suppress_warnings=True,
-        error_action="ignore"
+        order=(1, 1, 1),
+        seasonal_order=(1, 1, 1, seasonal_period),
+        enforce_stationarity=False,
+        enforce_invertibility=False
     )
+    # Use .fit(disp=False) to hide convergence logs
+    results = model.fit(disp=False)
     fit_time = time.time() - start_time
-    return model, fit_time
+    return results, fit_time
 
 def prepare_ml_data(series, n_lags):
-    df = pd.DataFrame(series)
+    df = pd.DataFrame(series.copy())
+    df.columns = ['y'] # Ensure column is 'y'
     df['time_index'] = np.arange(len(df))
     for i in range(1, n_lags + 1):
         df[f'y_lag_{i}'] = df['y'].shift(i)
@@ -489,35 +490,27 @@ def fit_ml_model(X_train, y_train, model_type):
     return model, fit_time
 
 def forecast_ml_model(model, X_train, y_train, n_lags, horizon):
-    # Get the last row of training data to start the forecast
     last_row = X_train.iloc[[-1]].copy()
     last_y = y_train.iloc[-1]
     
     forecasts = []
     
     for i in range(horizon):
-        # Create features for the next step
-        # 1. Increment time_index
         last_row['time_index'] += 1
-        
-        # 2. Shift lags
         if n_lags > 0:
             for j in range(n_lags, 1, -1):
                 last_row[f'y_lag_{j}'] = last_row[f'y_lag_{j-1}']
             last_row['y_lag_1'] = last_y
             
-        # Predict
         next_pred = model.predict(last_row)[0]
         forecasts.append(next_pred)
-        
-        # Update last_y for the *next* loop
         last_y = next_pred
         
     return np.array(forecasts)
 
 with tab5:
     st.header("Tab 5: Time Series Model Playground")
-    st.markdown("Compare different forecasting models on a dataset. **Note:** `auto_arima` can be slow the first time it runs.")
+    st.markdown("Compare different forecasting models on a dataset. **Note:** `SARIMAX` can be slow the first time it runs.")
     
     # --- 1. Controls ---
     st.subheader("1. Controls")
@@ -537,7 +530,6 @@ with tab5:
     train_data = data.iloc[:split_point]
     test_data = data.iloc[split_point:]
     
-    # Define forecast horizon (length of test set + 12 extra steps)
     n_test = len(test_data)
     n_forecast = n_test + 12
     
@@ -552,16 +544,25 @@ with tab5:
     # --- 3. Run Models ---
     st.subheader("3. Model Fitting and Comparison")
     
-    with st.spinner(f"Fitting 3 models... `auto_arima` may take a moment."):
-        # Model 1: auto_arima
-        arima_model, arima_time = fit_auto_arima(train_data, seasonal_period)
-        arima_preds, arima_ci = arima_model.predict(n_periods=n_forecast, return_conf_int=True, alpha=ci_alpha)
-        arima_ci_df = pd.DataFrame(arima_ci, columns=['lower', 'upper'])
+    with st.spinner(f"Fitting 3 models... `SARIMAX` may take a moment."):
+        # Model 1: SARIMAX (replaces auto_arima)
+        sarimax_model, arima_time = fit_sarimax(train_data, seasonal_period)
+        
+        # Create forecast index
+        forecast_index = pd.date_range(start=test_data.index[0], periods=n_forecast, freq=train_data.index.freqstr)
+        
+        # Get predictions
+        pred_obj = sarimax_model.get_prediction(start=test_data.index[0], end=forecast_index[-1])
+        arima_preds = pred_obj.predicted_mean
+        
+        # Get confidence intervals
+        ci_obj = pred_obj.conf_int(alpha=ci_alpha)
+        # Rename columns to be generic 'lower' and 'upper'
+        arima_ci_df = pd.DataFrame(ci_obj).rename(columns={f'lower {data.name}': 'lower', f'upper {data.name}': 'upper'})
         
         # Model 2 & 3: ML Models
         X, y = prepare_ml_data(data, n_lags_ml)
         X_train, y_train = X.iloc[:(split_point - n_lags_ml)], y.iloc[:(split_point - n_lags_ml)]
-        X_test, y_test = X.iloc[(split_point - n_lags_ml):], y.iloc[(split_point - n_lags_ml):]
         
         # Linear Regression
         lr_model, lr_time = fit_ml_model(X_train, y_train, "Linear Regression")
@@ -572,13 +573,8 @@ with tab5:
         rf_preds = forecast_ml_model(rf_model, X_train, y_train, n_lags_ml, n_forecast)
 
     # --- 4. Compare Results ---
-    
-    # Create forecast index
-    forecast_index = pd.date_range(start=data.index[split_point], periods=n_forecast, freq=data.index.freq)
-
-    # Calculate metrics on the test set
     metrics = {
-        "Model": ["ARIMA", "Linear Regression", "Random Forest"],
+        "Model": ["SARIMAX", "Linear Regression", "Random Forest"],
         "RMSE (Test Set)": [
             np.sqrt(mean_squared_error(test_data, arima_preds[:n_test])),
             np.sqrt(mean_squared_error(test_data, lr_preds[:n_test])),
@@ -591,22 +587,21 @@ with tab5:
     st.info(
         """
         **How to Read This:**
-        * **ARIMA:** Statistical model. Only model that provides a true, statistical **Confidence Interval**.
+        * **SARIMAX:** Statistical model. Only model that provides a true, statistical **Confidence Interval**.
         * **Linear Regression:** ML model. Can extrapolate the `time_index` trend, so its forecast continues the trend.
-        * **Random Forest:** ML model. **Cannot extrapolate!** Notice its forecast flatlines or becomes constant. It can only predict values within the range it was trained on.
+        * **Random Forest:** ML model. **Cannot extrapolate!** Notice its forecast flatlines. It can only predict values within the range it was trained on.
         """
     )
     
     st.subheader("4. Forecast Visualization")
     fig_all = go.Figure()
-    # Data
     fig_all.add_trace(go.Scatter(x=train_data.index, y=train_data, name="Train Data", line=dict(color='blue', width=2)))
     fig_all.add_trace(go.Scatter(x=test_data.index, y=test_data, name="Test Data (Actual)", line=dict(color='orange', width=2)))
     
-    # ARIMA
-    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_preds, name="ARIMA Forecast", line=dict(color='green', dash='dash')))
-    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_ci_df['lower'], name=f"ARIMA {(1-ci_alpha)*100}% CI", line=dict(color='green', width=0.5), fill=None))
-    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_ci_df['upper'], name="ARIMA CI Upper", line=dict(color='green', width=0.5), fill='tonexty', fillcolor='rgba(0,176,80,0.2)'))
+    # SARIMAX
+    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_preds, name="SARIMAX Forecast", line=dict(color='green', dash='dash')))
+    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_ci_df['lower'], name=f"SARIMAX {(1-ci_alpha)*100}% CI", line=dict(color='green', width=0.5), fill=None))
+    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_ci_df['upper'], name="SARIMAX CI Upper", line=dict(color='green', width=0.5), fill='tonexty', fillcolor='rgba(0,176,80,0.2)'))
     
     # Linear Regression
     fig_all.add_trace(go.Scatter(x=forecast_index, y=lr_preds, name="Linear Regression Forecast", line=dict(color='red', dash='dash')))
@@ -619,12 +614,12 @@ with tab5:
     
     # --- 5. Deep Dives ---
     st.subheader("5. Model Deep Dives")
-    tab_arima, tab_lr, tab_rf = st.tabs(["ARIMA Details", "Linear Regression Details", "Random Forest Details"])
+    tab_arima, tab_lr, tab_rf = st.tabs(["SARIMAX Details", "Linear Regression Details", "Random Forest Details"])
     
     with tab_arima:
-        st.markdown("`auto_arima` found the best statistical model for you.")
-        st.text(f"Best Model Parameters: {arima_model.order} {arima_model.seasonal_order}")
-        st.text(arima_model.summary())
+        st.markdown("We fit a `SARIMAX(1,1,1)(1,1,1,m)` model from `statsmodels`.")
+        st.markdown(f"This is a Seasonal ARIMA model with `m={seasonal_period}`.")
+        st.text(sarimax_model.summary())
         
     with tab_lr:
         st.markdown("Linear Regression creates features from the lags and a `time_index` (a simple count: 0, 1, 2...).")
