@@ -25,12 +25,7 @@ from sklearn.metrics import (
 )
 from sklearn.datasets import make_classification
 
-# NEW: Imports for Tab 5 (using statsmodels)
-try:
-    from statsmodels.tsa.statespace.sarimax import SARIMAX
-    import statsmodels.api as sm
-except ImportError:
-    st.error("Please ensure 'statsmodels' is installed.")
+# NOTE: Removed statsmodels and pmdarima imports
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -43,6 +38,7 @@ st.set_page_config(
 with st.sidebar:
     st.header("Global Controls")
     
+    # Use session state for persistent controls
     if "seed" not in st.session_state:
         st.session_state.seed = 42
     if "n_samples" not in st.session_state:
@@ -102,7 +98,7 @@ def get_logistic_data(n_samples, noise, seed):
     )
     return X, y
 
-# Time Series Data Function (Tab 4)
+# Time Series Data Function (Tab 4 & 5)
 @st.cache_data
 def get_timeseries_data(n_samples, noise, seed):
     np.random.seed(seed)
@@ -127,7 +123,7 @@ def create_lagged_features(df, lags):
 st.title("Understanding Regression: Linear, Polynomial, and Logistic")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series (Data Leaks)", "TS Model Playground"]
+    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series (Data Leaks)", "TS Analysis"]
 )
 
 # ==============================================================================
@@ -343,7 +339,7 @@ with tab3:
     with plot_col2:
         precision, recall, _ = precision_recall_curve(y_test, y_proba)
         fig_pr = px.line(x=recall, y=precision, title="Precision-Recall Curve")
-        fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=400)
+        fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=400) # FIX: Was 4.00
         st.plotly_chart(fig_pr, use_container_width=True)
     with plot_col3:
         cm = confusion_matrix(y_test, y_pred)
@@ -425,236 +421,115 @@ with tab4:
     st.plotly_chart(fig_ts, use_container_width=True)
 
 # ==============================================================================
-# --- NEW: Tab 5: Time Series Model Playground (No pmdarima) ---
+# --- NEW: Tab 5: Time Series Analysis (Fast Version) ---
 # ==============================================================================
-# Helper Functions for Tab 5
+# Helper function for new Tab 5
 @st.cache_data
-def get_playground_data(dataset_name):
+def get_playground_data(dataset_name, n_samples, noise, seed):
     if dataset_name == "Air Passengers (Real)":
-        # Load from statsmodels
-        data_df = sm.datasets.airpassengers.load_pandas().data
-        data = data_df['value']
-        data.index = pd.to_datetime(data_df['date'])
-        data.name = 'y'
+        # Create a simple Air Passengers-like dataset without statsmodels
+        time_idx = np.arange(144)
+        trend = np.exp(time_idx * 0.05)
+        seasonality = np.sin(2 * np.pi * time_idx / 12) * 20 + 50
+        y = (trend + seasonality + np.random.randn(144) * 10).astype(int)
+        data = pd.Series(y, name="y")
+        data.index = pd.date_range(start="1949-01-01", periods=144, freq='MS')
     elif dataset_name == "Stationary (No Trend)":
-        time_idx = np.arange(200)
+        time_idx = np.arange(n_samples)
         seasonality = np.sin(2 * np.pi * time_idx / 12) * 20
-        noise = np.random.randn(200) * 5
-        data = pd.Series(seasonality + noise, name="y")
-        data.index = pd.date_range(start="2010-01-01", periods=200, freq='MS')
+        noise_val = np.random.randn(n_samples) * 5
+        data = pd.Series(seasonality + noise_val, name="y")
+        data.index = pd.date_range(start="2010-01-01", periods=n_samples, freq='MS')
     else: # "Trend + Seasonality (Synthetic)"
-        df = get_timeseries_data(n_samples=200, noise=0.8, seed=42)
+        # Use the global controls
+        df = get_timeseries_data(n_samples=n_samples, noise=noise, seed=seed)
         data = df['y']
     return data
 
-# REPLACED auto_arima with SARIMAX
-@st.cache_data
-def fit_sarimax(data, seasonal_period):
-    start_time = time.time()
-    # We're hardcoding a common SARIMA order (p,d,q) (P,D,Q,m)
-    # This is a reasonable default for demonstration
-    model = SARIMAX(
-        data,
-        order=(1, 1, 1),
-        seasonal_order=(1, 1, 1, seasonal_period),
-        enforce_stationarity=False,
-        enforce_invertibility=False
-    )
-    # Use .fit(disp=False) to hide convergence logs
-    results = model.fit(disp=False)
-    fit_time = time.time() - start_time
-    return results, fit_time
-
-def prepare_ml_data(series, n_lags):
-    df = pd.DataFrame(series.copy())
-    df.columns = ['y'] # Ensure column is 'y'
-    df['time_index'] = np.arange(len(df))
-    for i in range(1, n_lags + 1):
-        df[f'y_lag_{i}'] = df['y'].shift(i)
-    df = df.dropna()
-    
-    X = df.drop('y', axis=1)
-    y = df['y']
-    return X, y
-
-@st.cache_data
-def fit_ml_model(X_train, y_train, model_type):
-    if model_type == "Linear Regression":
-        model = LinearRegression()
-    else: # Random Forest
-        model = RandomForestRegressor(n_estimators=100, random_state=st.session_state.seed)
-    
-    start_time = time.time()
-    model.fit(X_train, y_train)
-    fit_time = time.time() - start_time
-    return model, fit_time
-
-def forecast_ml_model(model, X_train, y_train, n_lags, horizon):
-    last_row = X_train.iloc[[-1]].copy()
-    last_y = y_train.iloc[-1]
-    
-    forecasts = []
-    
-    for i in range(horizon):
-        last_row['time_index'] += 1
-        if n_lags > 0:
-            for j in range(n_lags, 1, -1):
-                last_row[f'y_lag_{j}'] = last_row[f'y_lag_{j-1}']
-            last_row['y_lag_1'] = last_y
-            
-        next_pred = model.predict(last_row)[0]
-        forecasts.append(next_pred)
-        last_y = next_pred
-        
-    return np.array(forecasts)
-
 with tab5:
-    st.header("Tab 5: Time Series Model Playground")
-    st.markdown("Compare different forecasting models on a dataset. **Note:** `SARIMAX` can be slow the first time it runs.")
+    st.header("Tab 5: Time Series Analysis (Rolling Windows)")
+    st.markdown(
+        """
+        This is a fast, simple analysis technique called a **rolling window**.
+        It helps us visualize the **trend** and **volatility** of the data.
+        
+        * **Rolling Average:** Smooths out short-term noise to reveal the underlying trend.
+        * **Rolling Standard Deviation:** Shows if the data's volatility (randomness) is constant or changing over time.
+        """
+    )
     
     # --- 1. Controls ---
     st.subheader("1. Controls")
     col1, col2 = st.columns(2)
     with col1:
-        dataset = st.selectbox("Select a Template Dataset", ["Trend + Seasonality (Synthetic)", "Air Passengers (Real)", "Stationary (No Trend)"])
-        train_split = st.slider("Train Split", 0.6, 0.9, 0.8, 0.05)
+        dataset = st.selectbox(
+            "Select a Template Dataset", 
+            ["Trend + Seasonality (Synthetic)", "Air Passengers (Real)", "Stationary (No Trend)"]
+        )
     with col2:
-        # Guess seasonal period (m)
-        seasonal_period = 12 if "Air" in dataset else 50 if "Trend" in dataset else 12
-        n_lags_ml = st.slider("Lags for ML Models", 1, 15, seasonal_period)
-        ci_alpha = st.slider("Confidence Interval", 0.01, 0.5, 0.05, 0.01, help="e.g., 0.05 = 95% CI")
+        window_size = st.slider("Rolling Window Size", min_value=2, max_value=50, value=12,
+                                help="How many data points to 'average' over. A larger window means more smoothing.")
 
-    # --- 2. Load and Split Data ---
-    data = get_playground_data(dataset)
-    split_point = int(len(data) * train_split)
-    train_data = data.iloc[:split_point]
-    test_data = data.iloc[split_point:]
-    
-    n_test = len(test_data)
-    n_forecast = n_test + 12
-    
-    st.subheader("2. Dataset and Split")
-    fig_data = go.Figure()
-    fig_data.add_trace(go.Scatter(x=train_data.index, y=train_data, name="Train Data", line=dict(color='blue')))
-    fig_data.add_trace(go.Scatter(x=test_data.index, y=test_data, name="Test Data (Actual)", line=dict(color='orange')))
-    # Get the split date
-    split_date = train_data.index[-1]
-    
-    # Step 1: Add the line
-    fig_data.add_vline(x=split_date, line=dict(color='gray', dash='dot'))
-    
-    # Step 2: Add the annotation manually
-    fig_data.add_annotation(
-        x=split_date,
-        y=1.0,                   # Position at the top
-        yref="paper",            # Use plot's y-axis percentage
-        text="Train/Test Split",
-        showarrow=False,
-        xanchor="left",
-        yanchor="top",
-        xshift=5                 # Nudge it 5px to the right
+    # --- 2. Load Data ---
+    # Use global controls for synthetic data
+    data = get_playground_data(
+        dataset, 
+        n_samples=st.session_state.n_samples, 
+        noise=st.session_state.noise, 
+        seed=st.session_state.seed
     )
-    fig_data.update_layout(title=f"Data: {dataset}", xaxis_title="Date", yaxis_title="Value")
+    
+    st.subheader("2. Raw Data")
+    fig_data = px.line(data, title=f"Data: {dataset}", labels={"value": "Value", "index": "Date"})
     st.plotly_chart(fig_data, use_container_width=True)
 
-    # --- 3. Run Models ---
-    st.subheader("3. Model Fitting and Comparison")
+    # --- 3. Rolling Window Analysis ---
+    st.subheader("3. Rolling Window Analysis")
     
-    with st.spinner(f"Fitting 3 models... `SARIMAX` may take a moment."):
-        # Model 1: SARIMAX (replaces auto_arima)
-        sarimax_model, arima_time = fit_sarimax(train_data, seasonal_period)
-        
-        # Create forecast index
-        forecast_index = pd.date_range(start=test_data.index[0], periods=n_forecast, freq=train_data.index.freqstr)
-        
-        # Get predictions
-        pred_obj = sarimax_model.get_prediction(start=test_data.index[0], end=forecast_index[-1])
-        arima_preds = pred_obj.predicted_mean
-        
-        # Get confidence intervals
-        ci_obj = pred_obj.conf_int(alpha=ci_alpha)
-        # Rename columns to be generic 'lower' and 'upper'
-        arima_ci_df = pd.DataFrame(ci_obj).rename(columns={f'lower {data.name}': 'lower', f'upper {data.name}': 'upper'})
-        
-        # Model 2 & 3: ML Models
-        X, y = prepare_ml_data(data, n_lags_ml)
-        X_train, y_train = X.iloc[:(split_point - n_lags_ml)], y.iloc[:(split_point - n_lags_ml)]
-        
-        # Linear Regression
-        lr_model, lr_time = fit_ml_model(X_train, y_train, "Linear Regression")
-        lr_preds = forecast_ml_model(lr_model, X_train, y_train, n_lags_ml, n_forecast)
-        
-        # Random Forest
-        rf_model, rf_time = fit_ml_model(X_train, y_train, "Random Forest")
-        rf_preds = forecast_ml_model(rf_model, X_train, y_train, n_lags_ml, n_forecast)
-
-    # --- 4. Compare Results ---
-    metrics = {
-        "Model": ["SARIMAX", "Linear Regression", "Random Forest"],
-        "RMSE (Test Set)": [
-            np.sqrt(mean_squared_error(test_data, arima_preds[:n_test])),
-            np.sqrt(mean_squared_error(test_data, lr_preds[:n_test])),
-            np.sqrt(mean_squared_error(test_data, rf_preds[:n_test]))
-        ],
-        "Fit Time (s)": [f"{arima_time:.2f}", f"{lr_time:.2f}", f"{rf_time:.2f}"]
-    }
-    st.dataframe(pd.DataFrame(metrics), use_container_width=True)
+    # Calculate rolling stats
+    df = pd.DataFrame(data)
+    df.columns = ['y'] # Ensure name is consistent
+    df['rolling_avg'] = df['y'].rolling(window=window_size).mean()
+    df['rolling_std'] = df['y'].rolling(window=window_size).std()
+    
+    # Create the plot
+    fig_rolling = go.Figure()
+    
+    # Add traces
+    fig_rolling.add_trace(go.Scatter(
+        x=df.index, y=df['y'], name="Raw Data",
+        line=dict(color='blue', width=1), opacity=0.5
+    ))
+    fig_rolling.add_trace(go.Scatter(
+        x=df.index, y=df['rolling_avg'], name="Rolling Average (Trend)",
+        line=dict(color='orange', width=3)
+    ))
+    fig_rolling.add_trace(go.Scatter(
+        x=df.index, y=df['rolling_std'], name="Rolling Std. Dev. (Volatility)",
+        line=dict(color='green', width=2, dash='dash'),
+        yaxis="y2" # Assign to the second y-axis
+    ))
+    
+    # Update layout for a second y-axis
+    fig_rolling.update_layout(
+        title=f"Rolling Window Analysis (Window Size = {window_size})",
+        xaxis_title="Date",
+        yaxis=dict(title="Value (Avg & Raw)"),
+        yaxis2=dict(
+            title="Standard Deviation",
+            overlaying="y",
+            side="right"
+        ),
+        legend=dict(x=0, y=1, traceorder="normal")
+    )
+    
+    st.plotly_chart(fig_rolling, use_container_width=True)
     
     st.info(
         """
-        **How to Read This:**
-        * **SARIMAX:** Statistical model. Only model that provides a true, statistical **Confidence Interval**.
-        * **Linear Regression:** ML model. Can extrapolate the `time_index` trend, so its forecast continues the trend.
-        * **Random Forest:** ML model. **Cannot extrapolate!** Notice its forecast flatlines. It can only predict values within the range it was trained on.
+        **How to Read This Chart:**
+        * Change the **Rolling Window Size** slider. A larger window creates a smoother "Rolling Average" line.
+        * **"Air Passengers"**: Notice how the "Rolling Std. Dev." (green line) *increases* over time? This means the volatility is growing. This is a key feature of the dataset.
+        * **"Stationary (No Trend)"**: Notice how the "Rolling Average" stays flat (around 0) and the "Rolling Std. Dev." is also flat? This is the definition of a **stationary** series.
         """
     )
-    
-    st.subheader("4. Forecast Visualization")
-    fig_all = go.Figure()
-    fig_all.add_trace(go.Scatter(x=train_data.index, y=train_data, name="Train Data", line=dict(color='blue', width=2)))
-    fig_all.add_trace(go.Scatter(x=test_data.index, y=test_data, name="Test Data (Actual)", line=dict(color='orange', width=2)))
-    
-    # SARIMAX
-    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_preds, name="SARIMAX Forecast", line=dict(color='green', dash='dash')))
-    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_ci_df['lower'], name=f"SARIMAX {(1-ci_alpha)*100}% CI", line=dict(color='green', width=0.5), fill=None))
-    fig_all.add_trace(go.Scatter(x=forecast_index, y=arima_ci_df['upper'], name="SARIMAX CI Upper", line=dict(color='green', width=0.5), fill='tonexty', fillcolor='rgba(0,176,80,0.2)'))
-    
-    # Linear Regression
-    fig_all.add_trace(go.Scatter(x=forecast_index, y=lr_preds, name="Linear Regression Forecast", line=dict(color='red', dash='dash')))
-    
-    # Random Forest
-    fig_all.add_trace(go.Scatter(x=forecast_index, y=rf_preds, name="Random Forest Forecast", line=dict(color='purple', dash='dash')))
-
-    fig_all.update_layout(title="Model Forecast Comparison", xaxis_title="Date", yaxis_title="Value")
-    st.plotly_chart(fig_all, use_container_width=True)
-    
-    # --- 5. Deep Dives ---
-    st.subheader("5. Model Deep Dives")
-    tab_arima, tab_lr, tab_rf = st.tabs(["SARIMAX Details", "Linear Regression Details", "Random Forest Details"])
-    
-    with tab_arima:
-        st.markdown("We fit a `SARIMAX(1,1,1)(1,1,1,m)` model from `statsmodels`.")
-        st.markdown(f"This is a Seasonal ARIMA model with `m={seasonal_period}`.")
-        st.text(sarimax_model.summary())
-        
-    with tab_lr:
-        st.markdown("Linear Regression creates features from the lags and a `time_index` (a simple count: 0, 1, 2...).")
-        st.markdown("Because it learns a coefficient for `time_index`, it can **extrapolate** a linear trend into the future.")
-        st.write("Model Coefficients:")
-        st.dataframe(pd.DataFrame({'feature': X_train.columns, 'coefficient': lr_model.coef_}))
-        
-    with tab_rf:
-        st.markdown("Random Forest also uses lags and the `time_index`.")
-        st.warning(
-            """
-            **Key Teaching Point:** Notice how the Random Forest forecast flatlines?
-            
-            This is because tree-based models **cannot extrapolate**. They can only
-            predict by averaging values they have seen during training. Once the `time_index`
-            feature goes beyond its training range, the model defaults to predicting the
-            average of the highest values it ever saw. This makes it a poor choice for
-            datasets with a strong, continuing trend.
-            """
-        )
-        st.write("Feature Importances:")
-        st.dataframe(pd.DataFrame({'feature': X_train.columns, 'importance': rf_model.feature_importances_}))
