@@ -577,8 +577,21 @@ with tab4:
     
     # Add vertical line for split point
     split_date = df_lagged.index[split_point]
-    fig_ts.add_vline(x=split_date, line=dict(color='gray', dash='dot'),
-                     annotation_text="Train/Test Split", annotation_position="top left")
+    
+    # Step 1: Add the line
+    fig_ts.add_vline(x=split_date, line=dict(color='gray', dash='dot'))
+
+    # Step 2: Add the annotation manually
+    fig_ts.add_annotation(
+        x=split_date,            # Position at the split date
+        y=1.0,                   # Position at the top of the plot
+        yref="paper",            # Use plot's coordinate system for y
+        text="Train/Test Split",
+        showarrow=False,
+        xanchor="left",          # Anchor the text to the left
+        yanchor="top",           # Anchor the text to the top
+        xshift=5                 # Shift 5 pixels right to not overlap the line
+    )
     
     fig_ts.update_layout(title="Time Series Forecast (Correct Method)", xaxis_title="Date", yaxis_title="Value")
     st.plotly_chart(fig_ts, use_container_width=True)
