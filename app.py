@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import time  # To time model fits
-import matplotlib.pyplot as plt # <--- ADDED FOR TAB 6
+import matplotlib.pyplot as plt # FOR DECISION TREE VISUALIZATION
 
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -25,7 +25,7 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 from sklearn.datasets import make_classification
-from sklearn.tree import DecisionTreeClassifier, plot_tree # <--- ADDED FOR TAB 6
+from sklearn.tree import DecisionTreeClassifier, plot_tree # FOR DECISION TREE
 
 
 # --- Page Configuration ---
@@ -205,7 +205,7 @@ with tab1:
 
         if show_residuals:
             for i in range(len(x)):
-                # --- FIX: Was x.i, changed to x[i] ---
+                # --- THIS WAS THE FIX ---
                 fig.add_shape(type="line", x0=x[i], y0=y_pred[i], x1=x[i], y1=y[i], line=dict(color="red", width=1, dash="dot"))
         
         fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=500)
@@ -681,17 +681,25 @@ with tab6:
         
         st.markdown("#### Visualized Decision Tree")
         
-        fig, ax = plt.subplots(figsize=(12, 8))
+        # --- MORE ROBUST PLOTTING METHOD ---
+        # 1. Create a new matplotlib figure
+        plt.figure(figsize=(12, 8))
+        
+        # 2. Plot the tree onto the global figure
         plot_tree(
             tree_model,
-            ax=ax,
             feature_names=X_mfg.columns.tolist(),
             class_names=["Succeed", "Fail"], # 0 = Succeed, 1 = Fail
             filled=True,
             rounded=True,
             fontsize=10
         )
-        st.pyplot(fig)
+        
+        # 3. Pass the "global current figure" to streamlit
+        st.pyplot(plt.gcf())
+        
+        # 4. Clear the global figure from memory
+        plt.clf()
     
     st.info(
         """
