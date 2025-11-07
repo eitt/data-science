@@ -374,7 +374,7 @@ with tab3:
             """
             #### Why Logistic Regression?
             
-            Our target variable (e.g., `failed_this_year`) is **binary** (0 or 1). A normal Linear Regression model $y = \beta_0 + \beta_1 x$ is unbounded and can predict values like -0.5 or 1.5, which are meaningless as probabilities.
+            Our target variable (e.g., `failed_this_year`) is **binary** (0 or 1). A normal Linear Regression model \(y = \beta_0 + \beta_1 x\) is unbounded and can predict values like -0.5 or 1.5, which are meaningless as probabilities.
             
             We need a function that maps any real number to the range [0, 1]. We use the **logistic (or sigmoid) function**, which has an "S" shape.
             
