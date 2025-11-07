@@ -129,7 +129,7 @@ def create_lagged_features(df, lags):
 @st.cache_data
 def get_manufacturing_data(seed):
     np.random.seed(seed)
-    n_samples = 25
+    n_samples = 50
     temp = np.random.normal(loc=100, scale=10, size=n_samples).round(1)
     pressure = np.random.normal(loc=50, scale=5, size=n_samples).round(1)
     last_fail = np.random.randint(0, 2, size=n_samples)
