@@ -67,6 +67,11 @@ with st.sidebar:
     st.latex(r"\sigma(z)=\frac{1}{1+e^{-z}}")
     st.latex(r"\text{Gini} = 1 - \sum_{i=1}^{C} (p_i)^2")
     st.latex(r"\text{Entropy} = - \sum_{i=1}^{C} p_i \log_2(p_i)")
+    
+    # --- ADDED CREDITS ---
+    st.markdown("---") # Add a separator
+    st.markdown("By **Leonardo H. Talero-Sarmiento** "
+                "[View profile](https://apolo.unab.edu.co/en/persons/leonardo-talero)")
 
 
 # Set random seed for reproducibility
@@ -120,7 +125,7 @@ def create_lagged_features(df, lags):
     df_new = df_new.dropna()
     return df_new
 
-# NEW: Helper function for Tab 3 and Tab 6
+# Helper function for Tab 3 and Tab 6
 @st.cache_data
 def get_manufacturing_data(seed):
     np.random.seed(seed)
@@ -145,7 +150,6 @@ def get_manufacturing_data(seed):
 # --- Main App ---
 st.title("Understanding Regression: Linear, Polynomial, and Logistic")
 
-# ADDED Tab 6
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
     ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series (Data Leaks)", "TS Analysis", "Decision Trees"]
 )
@@ -202,7 +206,7 @@ with tab1:
 
         if show_residuals:
             for i in range(len(x)):
-                fig.add_shape(type="line", x0=x[i], y0=y_pred[i], x1=x[i], y1=y[i], line=dict(color="red", width=1, dash="dot"))
+                fig.add_shape(type="line", x0=x[i], y0=y_pred[i], x1=x.i, y1=y[i], line=dict(color="red", width=1, dash="dot"))
         
         fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=500)
         st.plotly_chart(fig, use_container_width=True)
@@ -358,7 +362,7 @@ with tab3:
     with plot_col2:
         precision, recall, _ = precision_recall_curve(y_test, y_proba)
         fig_pr = px.line(x=recall, y=precision, title="Precision-Recall Curve")
-        fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=400) # FIX: Was 4.00
+        fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=400)
         st.plotly_chart(fig_pr, use_container_width=True)
     with plot_col3:
         cm = confusion_matrix(y_test, y_pred)
@@ -367,14 +371,14 @@ with tab3:
         st.plotly_chart(fig_cm, use_container_width=True)
     st.markdown("**How to Read the Confusion Matrix:** Top-Left (True Negative), Bottom-Right (True Positive), Top-Right (False Positive), Bottom-Left (False Negative).")
 
-    # --- NEW: Manufacturing Example ---
+    # --- Manufacturing Example with LaTeX FIXES ---
     st.subheader("Context: Manufacturing Failure Example")
     with st.expander("Click to see a conceptual explanation and manufacturing example"):
         st.markdown(
             """
             #### Why Logistic Regression?
             
-            Our target variable (e.g., `failed_this_year`) is **binary** (0 or 1). A normal Linear Regression model \(y = \beta_0 + \beta_1 x\) is unbounded and can predict values like -0.5 or 1.5, which are meaningless as probabilities.
+            Our target variable (e.g., `failed_this_year`) is **binary** (0 or 1). A normal Linear Regression model $y = \beta_0 + \beta_1 x$ is unbounded and can predict values like -0.5 or 1.5, which are meaningless as probabilities.
             
             We need a function that maps any real number to the range [0, 1]. We use the **logistic (or sigmoid) function**, which has an "S" shape.
             
@@ -393,10 +397,7 @@ with tab3:
             """
         )
         
-        # Get the small, fixed manufacturing dataset
         df_mfg = get_manufacturing_data(st.session_state.seed)
-        
-        # Fit a model
         X_mfg = df_mfg.drop('failed_this_year', axis=1)
         y_mfg = df_mfg['failed_this_year']
         
@@ -407,7 +408,6 @@ with tab3:
         
         st.subheader("Model Interpretation: Coefficients & Odds Ratios")
         
-        # Get coefficients and odds ratios
         features = X_mfg.columns
         coeffs = mfg_model.coef_[0]
         odds_ratios = np.exp(coeffs)
@@ -513,7 +513,6 @@ with tab4:
 @st.cache_data
 def get_playground_data(dataset_name, n_samples, noise, seed):
     if dataset_name == "Air Passengers (Real)":
-        # Create a simple Air Passengers-like dataset without statsmodels
         time_idx = np.arange(144)
         trend = np.exp(time_idx * 0.05)
         seasonality = np.sin(2 * np.pi * time_idx / 12) * 20 + 50
@@ -527,7 +526,6 @@ def get_playground_data(dataset_name, n_samples, noise, seed):
         data = pd.Series(seasonality + noise_val, name="y")
         data.index = pd.date_range(start="2010-01-01", periods=n_samples, freq='MS')
     else: # "Trend + Seasonality (Synthetic)"
-        # Use the global controls
         df = get_timeseries_data(n_samples=n_samples, noise=noise, seed=seed)
         data = df['y']
     return data
@@ -544,7 +542,6 @@ with tab5:
         """
     )
     
-    # --- 1. Controls ---
     st.subheader("1. Controls")
     col1, col2 = st.columns(2)
     with col1:
@@ -556,7 +553,6 @@ with tab5:
         window_size = st.slider("Rolling Window Size", min_value=2, max_value=50, value=12,
                                 help="How many data points to 'average' over. A larger window means more smoothing.")
 
-    # --- 2. Load Data ---
     data = get_playground_data(
         dataset, 
         n_samples=st.session_state.n_samples, 
@@ -568,11 +564,10 @@ with tab5:
     fig_data = px.line(data, title=f"Data: {dataset}", labels={"value": "Value", "index": "Date"})
     st.plotly_chart(fig_data, use_container_width=True)
 
-    # --- 3. Rolling Window Analysis ---
     st.subheader("3. Rolling Window Analysis")
     
     df = pd.DataFrame(data)
-    df.columns = ['y'] # Ensure name is consistent
+    df.columns = ['y'] 
     df['rolling_avg'] = df['y'].rolling(window=window_size).mean()
     df['rolling_std'] = df['y'].rolling(window=window_size).std()
     
@@ -589,7 +584,7 @@ with tab5:
     fig_rolling.add_trace(go.Scatter(
         x=df.index, y=df['rolling_std'], name="Rolling Std. Dev. (Volatility)",
         line=dict(color='green', width=2, dash='dash'),
-        yaxis="y2" # Assign to the second y-axis
+        yaxis="y2" 
     ))
     
     fig_rolling.update_layout(
@@ -616,7 +611,7 @@ with tab5:
     )
     
 # ==============================================================================
-# --- NEW: Tab 6: Decision Tree Classification ---
+# --- Tab 6: Decision Tree Classification ---
 # ==============================================================================
 with tab6:
     st.header("Tab 6: Decision Tree Classification")
@@ -631,7 +626,6 @@ with tab6:
         """
     )
     
-    # --- 1. Explain Key Concepts ---
     st.subheader("1. Key Concepts: Gini vs. Entropy")
     
     col1, col2 = st.columns(2)
@@ -658,7 +652,6 @@ with tab6:
             """
         )
 
-    # --- 2. Interactive Model ---
     st.subheader("2. Interactive Model (Manufacturing Example)")
     st.markdown(
         """
@@ -667,7 +660,6 @@ with tab6:
         """
     )
     
-    # --- Controls ---
     col1, col2 = st.columns(2)
     with col1:
         df_mfg = get_manufacturing_data(st.session_state.seed)
@@ -679,9 +671,7 @@ with tab6:
         
         st.dataframe(df_mfg, height=300)
 
-    # --- Fit model and Plot Tree ---
     with col2:
-        # Fit the tree
         tree_model = DecisionTreeClassifier(
             criterion=criterion,
             max_depth=max_depth,
@@ -689,7 +679,6 @@ with tab6:
         )
         tree_model.fit(X_mfg, y_mfg)
         
-        # Plot the tree
         st.markdown("#### Visualized Decision Tree")
         
         fig, ax = plt.subplots(figsize=(12, 8))
