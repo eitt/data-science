@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import time  # To time model fits
-import matplotlib.pyplot as plt # FOR DECISION TREE VISUALIZATION
+import matplotlib.pyplot as plt # For decision tree plotting
 
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -25,8 +25,7 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 from sklearn.datasets import make_classification
-from sklearn.tree import DecisionTreeClassifier, plot_tree # FOR DECISION TREE
-
+from sklearn.tree import DecisionTreeClassifier, plot_tree # For Tab 6
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -59,6 +58,20 @@ with st.sidebar:
     if st.button("Reset"):
         st.session_state.clear()
         st.rerun()
+
+    # --- OPTIMIZATION: Page navigation moved to sidebar radio ---
+    st.markdown("---")
+    st.header("Navigation")
+    page_options = [
+        "Manual Linear Fit", 
+        "Train vs Test (Overfitting)", 
+        "Logistic Regression", 
+        "Time Series (Data Leaks)", 
+        "TS Analysis", 
+        "Decision Trees"
+    ]
+    page = st.radio("Select a topic", page_options)
+    st.markdown("---")
 
     st.header("Key Formulas")
     st.latex(r"\hat{y}_i = \beta_0 + \beta_1 x_i")
@@ -129,7 +142,7 @@ def create_lagged_features(df, lags):
 @st.cache_data
 def get_manufacturing_data(seed):
     np.random.seed(seed)
-    n_samples = 50
+    n_samples = 25
     temp = np.random.normal(loc=100, scale=10, size=n_samples).round(1)
     pressure = np.random.normal(loc=50, scale=5, size=n_samples).round(1)
     last_fail = np.random.randint(0, 2, size=n_samples)
@@ -146,17 +159,37 @@ def get_manufacturing_data(seed):
     })
     return df
 
+# Helper function for Tab 5
+@st.cache_data
+def get_playground_data(dataset_name, n_samples, noise, seed):
+    if dataset_name == "Air Passengers (Real)":
+        time_idx = np.arange(144)
+        trend = np.exp(time_idx * 0.05)
+        seasonality = np.sin(2 * np.pi * time_idx / 12) * 20 + 50
+        y = (trend + seasonality + np.random.randn(144) * 10).astype(int)
+        data = pd.Series(y, name="y")
+        data.index = pd.date_range(start="1949-01-01", periods=144, freq='MS')
+    elif dataset_name == "Stationary (No Trend)":
+        time_idx = np.arange(n_samples)
+        seasonality = np.sin(2 * np.pi * time_idx / 12) * 20
+        noise_val = np.random.randn(n_samples) * 5
+        data = pd.Series(seasonality + noise_val, name="y")
+        data.index = pd.date_range(start="2010-01-01", periods=n_samples, freq='MS')
+    else: # "Trend + Seasonality (Synthetic)"
+        df = get_timeseries_data(n_samples=n_samples, noise=noise, seed=seed)
+        data = df['y']
+    return data
+
 # --- Main App ---
-st.title("Understanding Regression: Linear, Polynomial, and Logistic")
+st.title("Understanding Supervised Learning")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series (Data Leaks)", "TS Analysis", "Decision Trees"]
-)
+# --- OPTIMIZATION: Replaced st.tabs with if/elif blocks ---
+# This ensures only the code for the ACTIVE page is run.
 
 # ==============================================================================
-# --- Tab 1: Manual Linear Fit ---
+# --- Page 1: Manual Linear Fit ---
 # ==============================================================================
-with tab1:
+if page == "Manual Linear Fit":
     st.header("Tab 1: Manual Linear Fit")
     st.markdown("Try to minimize SSE manually. Then click 'Compute OLS' to compare.")
     
@@ -216,9 +249,9 @@ with tab1:
     st.dataframe(df_linear.head(), use_container_width=True)
 
 # ==============================================================================
-# --- Tab 2: Training vs Testing: Overfitting ---
+# --- Page 2: Training vs Testing: Overfitting ---
 # ==============================================================================
-with tab2:
+elif page == "Train vs Test (Overfitting)":
     st.header("Tab 2: Training vs Testing: Overfitting")
     st.markdown("Training error almost always decreases with complexity, but test error increases after the optimal point.")
 
@@ -300,9 +333,9 @@ with tab2:
         st.plotly_chart(fig_err, use_container_width=True)
 
 # ==============================================================================
-# --- Tab 3: Logistic Regression ---
+# --- Page 3: Logistic Regression ---
 # ==============================================================================
-with tab3:
+elif page == "Logistic Regression":
     st.header("Tab 3: Logistic Regression")
     st.markdown("Adjust the threshold to see the trade-off between precision and recall.")
 
@@ -371,7 +404,6 @@ with tab3:
         st.plotly_chart(fig_cm, use_container_width=True)
     st.markdown("**How to Read the Confusion Matrix:** Top-Left (True Negative), Bottom-Right (True Positive), Top-Right (False Positive), Bottom-Left (False Negative).")
 
-    # --- Manufacturing Example with LaTeX FIXES ---
     st.subheader("Context: Manufacturing Failure Example")
     with st.expander("Click to see a conceptual explanation and manufacturing example"):
         st.markdown(
@@ -435,9 +467,9 @@ with tab3:
         )
 
 # ==============================================================================
-# --- Tab 4: Time Series (Data Leaks) ---
+# --- Page 4: Time Series (Data Leaks) ---
 # ==============================================================================
-with tab4:
+elif page == "Time Series (Data Leaks)":
     st.header("Tab 4: Time Series & Data Leaks")
     st.markdown("This tab demonstrates **data leaks**—using information from the future to train your model. The most common leak is **shuffling data** before splitting.")
 
@@ -507,30 +539,9 @@ with tab4:
     st.plotly_chart(fig_ts, use_container_width=True)
 
 # ==============================================================================
-# --- Tab 5: Time Series Analysis (Fast Version) ---
+# --- Page 5: Time Series Analysis (Fast Version) ---
 # ==============================================================================
-# Helper function for new Tab 5
-@st.cache_data
-def get_playground_data(dataset_name, n_samples, noise, seed):
-    if dataset_name == "Air Passengers (Real)":
-        time_idx = np.arange(144)
-        trend = np.exp(time_idx * 0.05)
-        seasonality = np.sin(2 * np.pi * time_idx / 12) * 20 + 50
-        y = (trend + seasonality + np.random.randn(144) * 10).astype(int)
-        data = pd.Series(y, name="y")
-        data.index = pd.date_range(start="1949-01-01", periods=144, freq='MS')
-    elif dataset_name == "Stationary (No Trend)":
-        time_idx = np.arange(n_samples)
-        seasonality = np.sin(2 * np.pi * time_idx / 12) * 20
-        noise_val = np.random.randn(n_samples) * 5
-        data = pd.Series(seasonality + noise_val, name="y")
-        data.index = pd.date_range(start="2010-01-01", periods=n_samples, freq='MS')
-    else: # "Trend + Seasonality (Synthetic)"
-        df = get_timeseries_data(n_samples=n_samples, noise=noise, seed=seed)
-        data = df['y']
-    return data
-
-with tab5:
+elif page == "TS Analysis":
     st.header("Tab 5: Time Series Analysis (Rolling Windows)")
     st.markdown(
         """
@@ -611,9 +622,9 @@ with tab5:
     )
     
 # ==============================================================================
-# --- Tab 6: Decision Tree Classification ---
+# --- Page 6: Decision Tree Classification ---
 # ==============================================================================
-with tab6:
+elif page == "Decision Trees":
     st.header("Tab 6: Decision Tree Classification")
     st.markdown(
         """
@@ -683,11 +694,12 @@ with tab6:
         
         # --- MORE ROBUST PLOTTING METHOD ---
         # 1. Create a new matplotlib figure
-        plt.figure(figsize=(12, 8))
+        fig, ax = plt.subplots(figsize=(12, 8))
         
-        # 2. Plot the tree onto the global figure
+        # 2. Plot the tree onto the figure's axes
         plot_tree(
             tree_model,
+            ax=ax,
             feature_names=X_mfg.columns.tolist(),
             class_names=["Succeed", "Fail"], # 0 = Succeed, 1 = Fail
             filled=True,
@@ -695,11 +707,11 @@ with tab6:
             fontsize=10
         )
         
-        # 3. Pass the "global current figure" to streamlit
-        st.pyplot(plt.gcf())
+        # 3. Pass the specific figure to streamlit
+        st.pyplot(fig)
         
-        # 4. Clear the global figure from memory
-        plt.clf()
+        # 4. Clear the figure from memory
+        plt.close(fig)
     
     st.info(
         """
