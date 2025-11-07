@@ -207,14 +207,14 @@ with tab1:
         if show_residuals:
             for i in range(len(x)):
                 if show_residuals:
-            for i in range(len(x)):
-                # --- FIX: Was x.i, changed to x[i] ---
-                fig.add_shape(
-                    type="line",
-                    x0=x[i], y0=y_pred[i],
-                    x1=x[i], y1=y[i], # <-- Corrected line
-                    line=dict(color="red", width=1, dash="dot")
-                )
+                    for i in range(len(x)):
+                        # --- FIX: Was x.i, changed to x[i] ---
+                        fig.add_shape(
+                            type="line",
+                            x0=x[i], y0=y_pred[i],
+                            x1=x[i], y1=y[i], # <-- Corrected line
+                            line=dict(color="red", width=1, dash="dot")
+                        )
         
         fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=500)
         st.plotly_chart(fig, use_container_width=True)
