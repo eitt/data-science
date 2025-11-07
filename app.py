@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import time  # To time model fits
-import matplotlib.pyplot as plt # For decision tree plotting
+import matplotlib.pyplot as plt # <--- ADDED FOR TAB 6
 
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -25,7 +25,8 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 from sklearn.datasets import make_classification
-from sklearn.tree import DecisionTreeClassifier, plot_tree # For Tab 6
+from sklearn.tree import DecisionTreeClassifier, plot_tree # <--- ADDED FOR TAB 6
+
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -68,8 +69,7 @@ with st.sidebar:
     st.latex(r"\text{Gini} = 1 - \sum_{i=1}^{C} (p_i)^2")
     st.latex(r"\text{Entropy} = - \sum_{i=1}^{C} p_i \log_2(p_i)")
     
-    # --- ADDED CREDITS ---
-    st.markdown("---") # Add a separator
+    st.markdown("---")
     st.markdown("By **Leonardo H. Talero-Sarmiento** "
                 "[View profile](https://apolo.unab.edu.co/en/persons/leonardo-talero)")
 
@@ -134,7 +134,6 @@ def get_manufacturing_data(seed):
     pressure = np.random.normal(loc=50, scale=5, size=n_samples).round(1)
     last_fail = np.random.randint(0, 2, size=n_samples)
     
-    # Create a clear relationship
     score = -15 + (temp * 0.1) + (pressure * 0.05) + (last_fail * 2.5)
     prob = 1 / (1 + np.exp(-score))
     y = (prob > 0.5).astype(int)
@@ -206,15 +205,8 @@ with tab1:
 
         if show_residuals:
             for i in range(len(x)):
-                if show_residuals:
-                    for i in range(len(x)):
-                        # --- FIX: Was x.i, changed to x[i] ---
-                        fig.add_shape(
-                            type="line",
-                            x0=x[i], y0=y_pred[i],
-                            x1=x[i], y1=y[i], # <-- Corrected line
-                            line=dict(color="red", width=1, dash="dot")
-                        )
+                # --- FIX: Was x.i, changed to x[i] ---
+                fig.add_shape(type="line", x0=x[i], y0=y_pred[i], x1=x[i], y1=y[i], line=dict(color="red", width=1, dash="dot"))
         
         fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=500)
         st.plotly_chart(fig, use_container_width=True)
