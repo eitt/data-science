@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import time  # To time model fits
+import matplotlib.pyplot as plt # For decision tree plotting
 
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -24,8 +25,7 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 from sklearn.datasets import make_classification
-
-# NOTE: Removed statsmodels and pmdarima imports
+from sklearn.tree import DecisionTreeClassifier, plot_tree # For Tab 6
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -63,10 +63,11 @@ with st.sidebar:
     st.latex(r"\hat{y}_i = \beta_0 + \beta_1 x_i")
     st.latex(r"R^2 = 1 - \frac{\text{SSE}}{\text{SST}}")
     st.latex(r"\text{SSE} = \sum (y_i - \hat{y}_i)^2")
-    st.latex(r"\text{MAE} = \frac{1}{n}\sum |e_i|")
-    st.latex(r"\text{RMSE} = \sqrt{\frac{1}{n}\sum e_i^2}")
     st.latex(r"p(y=1|x)=\sigma(\beta_0+\beta^\top x)")
     st.latex(r"\sigma(z)=\frac{1}{1+e^{-z}}")
+    st.latex(r"\text{Gini} = 1 - \sum_{i=1}^{C} (p_i)^2")
+    st.latex(r"\text{Entropy} = - \sum_{i=1}^{C} p_i \log_2(p_i)")
+
 
 # Set random seed for reproducibility
 np.random.seed(st.session_state.seed)
@@ -119,11 +120,34 @@ def create_lagged_features(df, lags):
     df_new = df_new.dropna()
     return df_new
 
+# NEW: Helper function for Tab 3 and Tab 6
+@st.cache_data
+def get_manufacturing_data(seed):
+    np.random.seed(seed)
+    n_samples = 25
+    temp = np.random.normal(loc=100, scale=10, size=n_samples).round(1)
+    pressure = np.random.normal(loc=50, scale=5, size=n_samples).round(1)
+    last_fail = np.random.randint(0, 2, size=n_samples)
+    
+    # Create a clear relationship
+    score = -15 + (temp * 0.1) + (pressure * 0.05) + (last_fail * 2.5)
+    prob = 1 / (1 + np.exp(-score))
+    y = (prob > 0.5).astype(int)
+    
+    df = pd.DataFrame({
+        'temperature': temp,
+        'pressure': pressure,
+        'last_year_failed': last_fail,
+        'failed_this_year': y
+    })
+    return df
+
 # --- Main App ---
 st.title("Understanding Regression: Linear, Polynomial, and Logistic")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series (Data Leaks)", "TS Analysis"]
+# ADDED Tab 6
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["Manual Linear Fit", "Train vs Test (Overfitting)", "Logistic Regression", "Time Series (Data Leaks)", "TS Analysis", "Decision Trees"]
 )
 
 # ==============================================================================
@@ -306,11 +330,6 @@ with tab3:
 
         st.info("A **higher** threshold increases Precision but decreases Recall. A **lower** threshold does the opposite.")
         
-        st.subheader("Model Coefficients")
-        st.write(f"Feature 1 Coef: {model.coef_[0][0]:.3f}")
-        st.write(f"Feature 2 Coef: {model.coef_[0][1]:.3f}")
-        st.write(f"Intercept: {model.intercept_[0]:.3f}")
-        
     with col2:
         st.subheader("Decision Boundary and Test Data")
         x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
@@ -347,6 +366,73 @@ with tab3:
         fig_cm.update_layout(title="Confusion Matrix (at threshold)", height=400)
         st.plotly_chart(fig_cm, use_container_width=True)
     st.markdown("**How to Read the Confusion Matrix:** Top-Left (True Negative), Bottom-Right (True Positive), Top-Right (False Positive), Bottom-Left (False Negative).")
+
+    # --- NEW: Manufacturing Example ---
+    st.subheader("Context: Manufacturing Failure Example")
+    with st.expander("Click to see a conceptual explanation and manufacturing example"):
+        st.markdown(
+            """
+            #### Why Logistic Regression?
+            
+            Our target variable (e.g., `failed_this_year`) is **binary** (0 or 1). A normal Linear Regression model $y = \beta_0 + \beta_1 x$ is unbounded and can predict values like -0.5 or 1.5, which are meaningless as probabilities.
+            
+            We need a function that maps any real number to the range [0, 1]. We use the **logistic (or sigmoid) function**, which has an "S" shape.
+            
+            $$ \text{Probability} = \sigma(z) = \frac{1}{1 + e^{-z}} $$
+            
+            Where $z$ is our familiar linear equation: $z = \beta_0 + \beta_1 x_1 + ...$
+            
+            This $z$ value is called the **log-odds**. The coefficients ($\beta_1$, etc.) are no longer interpreted directly. Instead, we interpret their exponent, $e^\beta$, which is the **Odds Ratio**.
+            """
+        )
+        
+        st.subheader("Example: Predicting Machine Failure")
+        st.markdown(
+            """
+            Let's predict `failed_this_year` (0 or 1) based on `temperature`, `pressure`, and `last_year_failed`.
+            """
+        )
+        
+        # Get the small, fixed manufacturing dataset
+        df_mfg = get_manufacturing_data(st.session_state.seed)
+        
+        # Fit a model
+        X_mfg = df_mfg.drop('failed_this_year', axis=1)
+        y_mfg = df_mfg['failed_this_year']
+        
+        mfg_model = LogisticRegression()
+        mfg_model.fit(X_mfg, y_mfg)
+        
+        st.dataframe(df_mfg, use_container_width=True)
+        
+        st.subheader("Model Interpretation: Coefficients & Odds Ratios")
+        
+        # Get coefficients and odds ratios
+        features = X_mfg.columns
+        coeffs = mfg_model.coef_[0]
+        odds_ratios = np.exp(coeffs)
+        
+        interp_df = pd.DataFrame({
+            'Feature': features,
+            'Coefficient (Log-Odds)': coeffs,
+            'Odds Ratio (e^coeff)': odds_ratios
+        })
+        
+        st.dataframe(interp_df.round(3), use_container_width=True)
+        
+        st.markdown(
+            """
+            **How to Interpret:**
+            
+            * **Coefficient (Log-Odds):** A positive value means the feature *increases* the log-odds (and thus probability) of failure. A negative value *decreases* it.
+            * **Odds Ratio:** This is easier to understand.
+                * An odds ratio of **1.0** means the feature has **no effect**.
+                * An odds ratio of **1.15** means a 1-unit increase in that feature (e.g., 1 degree of temperature) makes the event **15% more likely** (1.15 - 1.0).
+                * An odds ratio of **0.80** means a 1-unit increase in that feature makes the event **20% less likely** (1.0 - 0.80).
+            
+            From our model, a 1-degree rise in `temperature` increases the odds of failure by ~10%, while a machine that `last_year_failed` is over 10x more likely to fail again!
+            """
+        )
 
 # ==============================================================================
 # --- Tab 4: Time Series (Data Leaks) ---
@@ -421,7 +507,7 @@ with tab4:
     st.plotly_chart(fig_ts, use_container_width=True)
 
 # ==============================================================================
-# --- NEW: Tab 5: Time Series Analysis (Fast Version) ---
+# --- Tab 5: Time Series Analysis (Fast Version) ---
 # ==============================================================================
 # Helper function for new Tab 5
 @st.cache_data
@@ -471,7 +557,6 @@ with tab5:
                                 help="How many data points to 'average' over. A larger window means more smoothing.")
 
     # --- 2. Load Data ---
-    # Use global controls for synthetic data
     data = get_playground_data(
         dataset, 
         n_samples=st.session_state.n_samples, 
@@ -486,16 +571,13 @@ with tab5:
     # --- 3. Rolling Window Analysis ---
     st.subheader("3. Rolling Window Analysis")
     
-    # Calculate rolling stats
     df = pd.DataFrame(data)
     df.columns = ['y'] # Ensure name is consistent
     df['rolling_avg'] = df['y'].rolling(window=window_size).mean()
     df['rolling_std'] = df['y'].rolling(window=window_size).std()
     
-    # Create the plot
     fig_rolling = go.Figure()
     
-    # Add traces
     fig_rolling.add_trace(go.Scatter(
         x=df.index, y=df['y'], name="Raw Data",
         line=dict(color='blue', width=1), opacity=0.5
@@ -510,7 +592,6 @@ with tab5:
         yaxis="y2" # Assign to the second y-axis
     ))
     
-    # Update layout for a second y-axis
     fig_rolling.update_layout(
         title=f"Rolling Window Analysis (Window Size = {window_size})",
         xaxis_title="Date",
@@ -529,7 +610,108 @@ with tab5:
         """
         **How to Read This Chart:**
         * Change the **Rolling Window Size** slider. A larger window creates a smoother "Rolling Average" line.
-        * **"Air Passengers"**: Notice how the "Rolling Std. Dev." (green line) *increases* over time? This means the volatility is growing. This is a key feature of the dataset.
+        * **"Air Passengers"**: Notice how the "Rolling Std. Dev." (green line) *increases* over time? This means the volatility is growing.
         * **"Stationary (No Trend)"**: Notice how the "Rolling Average" stays flat (around 0) and the "Rolling Std. Dev." is also flat? This is the definition of a **stationary** series.
+        """
+    )
+    
+# ==============================================================================
+# --- NEW: Tab 6: Decision Tree Classification ---
+# ==============================================================================
+with tab6:
+    st.header("Tab 6: Decision Tree Classification")
+    st.markdown(
+        """
+        Unlike Logistic Regression (which finds a single linear boundary), a **Decision Tree**
+        asks a series of simple, axis-aligned questions to split the data into "pure"
+        groups (e.g., all "Fail" or all "Succeed").
+        
+        It builds this tree by finding the best question to ask at each step. "Best" is
+        measured by how much the question reduces **impurity**.
+        """
+    )
+    
+    # --- 1. Explain Key Concepts ---
+    st.subheader("1. Key Concepts: Gini vs. Entropy")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info(
+            """
+            #### Gini Impurity
+            * **Formula:** $G = 1 - \sum_{i=1}^{C} (p_i)^2$
+            * **What it is:** The probability of *incorrectly* classifying a randomly chosen
+                item if it were randomly labeled according to the class distribution.
+            * **Range:** 0 (perfectly pure, all one class) to 0.5 (perfectly mixed, 50/50).
+            * Tends to be faster and is the `sklearn` default.
+            """
+        )
+    with col2:
+        st.info(
+            """
+            #### Entropy
+            * **Formula:** $H = - \sum_{i=1}^{C} p_i \log_2(p_i)$
+            * **What it is:** A measure of information, or "disorder." A node with
+                high entropy is very mixed.
+            * **Range:** 0 (perfectly pure) to 1 (perfectly mixed).
+            * Tends to produce slightly more balanced trees.
+            """
+        )
+
+    # --- 2. Interactive Model ---
+    st.subheader("2. Interactive Model (Manufacturing Example)")
+    st.markdown(
+        """
+        Here is the *same* manufacturing dataset from the Logistic Regression tab.
+        Change the controls to see how the tree's structure changes.
+        """
+    )
+    
+    # --- Controls ---
+    col1, col2 = st.columns(2)
+    with col1:
+        df_mfg = get_manufacturing_data(st.session_state.seed)
+        X_mfg = df_mfg.drop('failed_this_year', axis=1)
+        y_mfg = df_mfg['failed_this_year']
+        
+        criterion = st.selectbox("Impurity Criterion", ["gini", "entropy"])
+        max_depth = st.slider("Tree Max Depth", min_value=1, max_value=5, value=3)
+        
+        st.dataframe(df_mfg, height=300)
+
+    # --- Fit model and Plot Tree ---
+    with col2:
+        # Fit the tree
+        tree_model = DecisionTreeClassifier(
+            criterion=criterion,
+            max_depth=max_depth,
+            random_state=st.session_state.seed
+        )
+        tree_model.fit(X_mfg, y_mfg)
+        
+        # Plot the tree
+        st.markdown("#### Visualized Decision Tree")
+        
+        fig, ax = plt.subplots(figsize=(12, 8))
+        plot_tree(
+            tree_model,
+            ax=ax,
+            feature_names=X_mfg.columns.tolist(),
+            class_names=["Succeed", "Fail"], # 0 = Succeed, 1 = Fail
+            filled=True,
+            rounded=True,
+            fontsize=10
+        )
+        st.pyplot(fig)
+    
+    st.info(
+        """
+        **How to Read This Tree:**
+        * **Top Node (Root):** The first question the tree asks (e.g., `temperature <= 102.5`).
+        * **Gini/Entropy:** The impurity of the node. The goal is to reach 0.
+        * **Samples:** How many data points are in this node.
+        * **Value:** `[# of class 0, # of class 1]`. Here, `[Succeed, Fail]`.
+        * **Class:** The majority class in that node.
+        * **Leaves (Bottom Nodes):** The final predictions.
         """
     )
