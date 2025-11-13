@@ -65,10 +65,11 @@ with st.sidebar:
     page_options = [
         "Manual Linear Fit", 
         "Train vs Test (Overfitting)", 
-        "Logistic Regression", 
+        "Logistic Regression",
+        "Decision Trees",
+        "Neural Network (Manual Fit)",
         "Time Series (Data Leaks)", 
-        "TS Analysis", 
-        "Decision Trees"
+        "TS Analysis"
     ]
     page = st.radio("Select a topic", page_options)
     st.markdown("---")
@@ -76,11 +77,9 @@ with st.sidebar:
     st.header("Key Formulas")
     st.latex(r"\hat{y}_i = \beta_0 + \beta_1 x_i")
     st.latex(r"R^2 = 1 - \frac{\text{SSE}}{\text{SST}}")
-    st.latex(r"\text{SSE} = \sum (y_i - \hat{y}_i)^2")
     st.latex(r"p(y=1|x)=\sigma(\beta_0+\beta^\top x)")
     st.latex(r"\sigma(z)=\frac{1}{1+e^{-z}}")
     st.latex(r"\text{Gini} = 1 - \sum_{i=1}^{C} (p_i)^2")
-    st.latex(r"\text{Entropy} = - \sum_{i=1}^{C} p_i \log_2(p_i)")
     
     st.markdown("---")
     st.markdown("By **Leonardo H. Talero-Sarmiento** "
@@ -180,6 +179,15 @@ def get_playground_data(dataset_name, n_samples, noise, seed):
         data = df['y']
     return data
 
+# NEW: Helper function for Tab 7
+@st.cache_data
+def get_nn_data(seed, noise):
+    np.random.seed(seed)
+    x = np.linspace(0, 1, 10) # 10 points
+    y_true = np.sin(2 * np.pi * x)
+    y = y_true + np.random.randn(10) * noise
+    return x, y, y_true
+
 # --- Main App ---
 st.title("Understanding Supervised Learning")
 
@@ -190,7 +198,7 @@ st.title("Understanding Supervised Learning")
 # --- Page 1: Manual Linear Fit ---
 # ==============================================================================
 if page == "Manual Linear Fit":
-    st.header("Tab 1: Manual Linear Fit")
+    st.header("Manual Linear Fit")
     st.markdown("Try to minimize SSE manually. Then click 'Compute OLS' to compare.")
     
     x, y, true_b0, true_b1 = get_linear_data(st.session_state.n_samples, st.session_state.noise, st.session_state.seed)
@@ -238,7 +246,6 @@ if page == "Manual Linear Fit":
 
         if show_residuals:
             for i in range(len(x)):
-                # --- THIS WAS THE FIX ---
                 fig.add_shape(type="line", x0=x[i], y0=y_pred[i], x1=x[i], y1=y[i], line=dict(color="red", width=1, dash="dot"))
         
         fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=500)
@@ -252,7 +259,7 @@ if page == "Manual Linear Fit":
 # --- Page 2: Training vs Testing: Overfitting ---
 # ==============================================================================
 elif page == "Train vs Test (Overfitting)":
-    st.header("Tab 2: Training vs Testing: Overfitting")
+    st.header("Training vs Testing: Overfitting")
     st.markdown("Training error almost always decreases with complexity, but test error increases after the optimal point.")
 
     x, y, y_true = get_poly_data(st.session_state.n_samples, st.session_state.noise, st.session_state.seed)
@@ -329,14 +336,14 @@ elif page == "Train vs Test (Overfitting)":
         min_test_err_deg = degrees[min_test_err_idx]
         fig_err.add_annotation(x=min_test_err_deg, y=test_errors[min_test_err_idx], text=f"Min Test Error (Degree {min_test_err_deg})", showarrow=True, arrowhead=1, ax=20, ay=-40)
         fig_err.add_vline(x=min_test_err_deg, line=dict(color='red', dash='dot'))
-        fig_err.update_layout(title="Train and Test Error vs. Model Complexity", xaxis_title="Polynomial Degree", yaxis_title=f"Error ({metric_choice})", height=400)
+        fig_err.update_layout(title="Train and Test Error vs. Model Complexity", xaxis_title="Polynomial Degree", yaxis_title=f"Error ({metric_choice})", height=4.00)
         st.plotly_chart(fig_err, use_container_width=True)
 
 # ==============================================================================
 # --- Page 3: Logistic Regression ---
 # ==============================================================================
 elif page == "Logistic Regression":
-    st.header("Tab 3: Logistic Regression")
+    st.header("Logistic Regression")
     st.markdown("Adjust the threshold to see the trade-off between precision and recall.")
 
     X, y = get_logistic_data(st.session_state.n_samples, st.session_state.noise, st.session_state.seed)
@@ -409,25 +416,15 @@ elif page == "Logistic Regression":
         st.markdown(
             """
             #### Why Logistic Regression?
-            
             Our target variable (e.g., `failed_this_year`) is **binary** (0 or 1). A normal Linear Regression model $y = \beta_0 + \beta_1 x$ is unbounded and can predict values like -0.5 or 1.5, which are meaningless as probabilities.
-            
             We need a function that maps any real number to the range [0, 1]. We use the **logistic (or sigmoid) function**, which has an "S" shape.
-            
             $$ \text{Probability} = \sigma(z) = \frac{1}{1 + e^{-z}} $$
-            
             Where $z$ is our familiar linear equation: $z = \beta_0 + \beta_1 x_1 + ...$
-            
             This $z$ value is called the **log-odds**. The coefficients ($\beta_1$, etc.) are no longer interpreted directly. Instead, we interpret their exponent, $e^\beta$, which is the **Odds Ratio**.
             """
         )
-        
         st.subheader("Example: Predicting Machine Failure")
-        st.markdown(
-            """
-            Let's predict `failed_this_year` (0 or 1) based on `temperature`, `pressure`, and `last_year_failed`.
-            """
-        )
+        st.markdown("Let's predict `failed_this_year` (0 or 1) based on `temperature`, `pressure`, and `last_year_failed`.")
         
         df_mfg = get_manufacturing_data(st.session_state.seed)
         X_mfg = df_mfg.drop('failed_this_year', axis=1)
@@ -439,7 +436,6 @@ elif page == "Logistic Regression":
         st.dataframe(df_mfg, use_container_width=True)
         
         st.subheader("Model Interpretation: Coefficients & Odds Ratios")
-        
         features = X_mfg.columns
         coeffs = mfg_model.coef_[0]
         odds_ratios = np.exp(coeffs)
@@ -449,28 +445,201 @@ elif page == "Logistic Regression":
             'Coefficient (Log-Odds)': coeffs,
             'Odds Ratio (e^coeff)': odds_ratios
         })
-        
         st.dataframe(interp_df.round(3), use_container_width=True)
-        
         st.markdown(
             """
             **How to Interpret:**
-            
-            * **Coefficient (Log-Odds):** A positive value means the feature *increases* the log-odds (and thus probability) of failure. A negative value *decreases* it.
-            * **Odds Ratio:** This is easier to understand.
-                * An odds ratio of **1.0** means the feature has **no effect**.
-                * An odds ratio of **1.15** means a 1-unit increase in that feature (e.g., 1 degree of temperature) makes the event **15% more likely** (1.15 - 1.0).
-                * An odds ratio of **0.80** means a 1-unit increase in that feature makes the event **20% less likely** (1.0 - 0.80).
-            
+            * **Odds Ratio:** An odds ratio of **1.15** means a 1-unit increase in that feature (e.g., 1 degree of temperature) makes the event **15% more likely**. An odds ratio of **0.80** makes it **20% less likely**.
             From our model, a 1-degree rise in `temperature` increases the odds of failure by ~10%, while a machine that `last_year_failed` is over 10x more likely to fail again!
             """
         )
 
 # ==============================================================================
-# --- Page 4: Time Series (Data Leaks) ---
+# --- Page 4: Decision Trees ---
+# ==============================================================================
+elif page == "Decision Trees":
+    st.header("Decision Tree Classification")
+    st.markdown(
+        """
+        Unlike Logistic Regression (which finds a single linear boundary), a **Decision Tree**
+        asks a series of simple, axis-aligned questions to split the data into "pure"
+        groups (e.g., all "Fail" or all "Succeed").
+        
+        It builds this tree by finding the best question to ask at each step. "Best" is
+        measured by how much the question reduces **impurity**.
+        """
+    )
+    
+    st.subheader("1. Key Concepts: Gini vs. Entropy")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info(
+            """
+            #### Gini Impurity
+            * **Formula:** $G = 1 - \sum_{i=1}^{C} (p_i)^2$
+            * **What it is:** The probability of *incorrectly* classifying a randomly chosen
+                item if it were randomly labeled according to the class distribution.
+            * **Range:** 0 (perfectly pure) to 0.5 (perfectly mixed).
+            """
+        )
+    with col2:
+        st.info(
+            """
+            #### Entropy
+            * **Formula:** $H = - \sum_{i=1}^{C} p_i \log_2(p_i)$
+            * **What it is:** A measure of "disorder." A node with
+                high entropy is very mixed.
+            * **Range:** 0 (perfectly pure) to 1 (perfectly mixed).
+            """
+        )
+
+    st.subheader("2. Interactive Model (Manufacturing Example)")
+    st.markdown("Here is the *same* manufacturing dataset. Change the controls to see how the tree's structure changes.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        df_mfg = get_manufacturing_data(st.session_state.seed)
+        X_mfg = df_mfg.drop('failed_this_year', axis=1)
+        y_mfg = df_mfg['failed_this_year']
+        
+        criterion = st.selectbox("Impurity Criterion", ["gini", "entropy"])
+        max_depth = st.slider("Tree Max Depth", min_value=1, max_value=5, value=3)
+        
+        st.dataframe(df_mfg, height=300)
+
+    with col2:
+        tree_model = DecisionTreeClassifier(
+            criterion=criterion,
+            max_depth=max_depth,
+            random_state=st.session_state.seed
+        )
+        tree_model.fit(X_mfg, y_mfg)
+        
+        st.markdown("#### Visualized Decision Tree")
+        
+        # Plot the tree
+        fig, ax = plt.subplots(figsize=(12, 8))
+        plot_tree(
+            tree_model,
+            ax=ax,
+            feature_names=X_mfg.columns.tolist(),
+            class_names=["Succeed", "Fail"], # 0 = Succeed, 1 = Fail
+            filled=True,
+            rounded=True,
+            fontsize=10
+        )
+        st.pyplot(fig)
+        plt.close(fig) # Clear figure from memory
+    
+    st.info(
+        """
+        **How to Read This Tree:**
+        * **Top Node (Root):** The first question the tree asks.
+        * **Gini/Entropy:** The impurity of the node (goal is 0).
+        * **Samples:** How many data points are in this node.
+        * **Value:** `[# of class 0, # of class 1]`. Here, `[Succeed, Fail]`.
+        * **Class:** The majority class in that node.
+        * **Leaves (Bottom Nodes):** The final predictions.
+        """
+    )
+
+# ==============================================================================
+# --- NEW: Page 5: Neural Network (Manual Fit) ---
+# ==============================================================================
+elif page == "Neural Network (Manual Fit)":
+    st.header("Neural Network (Manual Fit)")
+    st.markdown(
+        """
+        This is a simple 1-3-1 Neural Network. It uses the **ReLU** activation function
+        in the hidden layer. Try to manually adjust the weights and biases to
+        make the orange "Forecast" line match the "True" sine wave.
+        
+        This demonstrates how individual neurons, each a simple linear unit + activation,
+        can be combined to approximate complex, non-linear functions.
+        """
+    )
+
+    # Get data
+    x_data, y_data, y_true = get_nn_data(st.session_state.seed, st.session_state.noise)
+    x_plot = np.linspace(0, 1, 100) # For a smooth true line
+
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        st.subheader("Network Weights & Biases")
+        st.markdown("Structure: 1 Input -> 3 Hidden (ReLU) -> 1 Output (Linear)")
+
+        with st.expander("Input -> Hidden Layer"):
+            w_i1 = st.slider("Weight (x -> h1)", -5.0, 5.0, 1.0)
+            b_h1 = st.slider("Bias (h1)", -2.0, 2.0, 0.0)
+            w_i2 = st.slider("Weight (x -> h2)", -5.0, 5.0, -2.0)
+            b_h2 = st.slider("Bias (h2)", -2.0, 2.0, 0.5)
+            w_i3 = st.slider("Weight (x -> h3)", -5.0, 5.0, 3.0)
+            b_h3 = st.slider("Bias (h3)", -2.0, 2.0, -1.0)
+        
+        with st.expander("Hidden -> Output Layer"):
+            w_h1_o = st.slider("Weight (h1 -> y)", -5.0, 5.0, 1.0)
+            w_h2_o = st.slider("Weight (h2 -> y)", -5.0, 5.0, -1.0)
+            w_h3_o = st.slider("Weight (h3 -> y)", -5.0, 5.0, 0.5)
+            b_o = st.slider("Bias (y)", -2.0, 2.0, 0.0)
+
+    # --- Forward Pass Calculation ---
+    def relu(z):
+        return np.maximum(0, z)
+
+    # We need a smooth prediction line for the plot
+    # Calculate forward pass on the dense x_plot
+    z_h1_plot = (w_i1 * x_plot) + b_h1
+    a_h1_plot = relu(z_h1_plot)
+    z_h2_plot = (w_i2 * x_plot) + b_h2
+    a_h2_plot = relu(z_h2_plot)
+    z_h3_plot = (w_i3 * x_plot) + b_h3
+    a_h3_plot = relu(z_h3_plot)
+    z_o_plot = (w_h1_o * a_h1_plot) + (w_h2_o * a_h2_plot) + (w_h3_o * a_h3_plot) + b_o
+    y_pred_plot = z_o_plot # Linear output
+    
+    # Calculate predictions just for the 10 data points for RMSE
+    z_h1_data = (w_i1 * x_data) + b_h1
+    a_h1_data = relu(z_h1_data)
+    z_h2_data = (w_i2 * x_data) + b_h2
+    a_h2_data = relu(z_h2_data)
+    z_h3_data = (w_i3 * x_data) + b_h3
+    a_h3_data = relu(z_h3_data)
+    z_o_data = (w_h1_o * a_h1_data) + (w_h2_o * a_h2_data) + (w_h3_o * a_h3_data) + b_o
+    y_pred_data = z_o_data
+
+    # --- Calculate RMSE ---
+    rmse = np.sqrt(mean_squared_error(y_data, y_pred_data))
+    with col1:
+        st.subheader("Performance")
+        st.metric("RMSE (on 10 points)", f"{rmse:.3f}")
+        st.markdown("Try to get the RMSE as low as possible!")
+
+        st.subheader("Data & Forecasts")
+        df_nn = pd.DataFrame({
+            'x': x_data,
+            'y_real': y_data,
+            'y_forecasted': y_pred_data
+        })
+        st.dataframe(df_nn.round(2), height=200)
+
+    # --- Plot ---
+    with col2:
+        st.subheader("Real vs. Forecasted Values")
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=x_data, y=y_data, mode='markers', name='Data Points (Real)', marker=dict(size=10)))
+        fig.add_trace(go.Scatter(x=x_plot, y=np.sin(2 * np.pi * x_plot), mode='lines', name='True Sine Wave', line=dict(dash='dash', color='green')))
+        fig.add_trace(go.Scatter(x=x_plot, y=y_pred_plot, mode='lines', name='ANN Forecast (Manual)', line=dict(color='orange', width=3)))
+        
+        fig.update_layout(title="Manual ANN Fit", xaxis_title="x", yaxis_title="y", yaxis_range=[-2.5, 2.5])
+        st.plotly_chart(fig, use_container_width=True)
+
+# ==============================================================================
+# --- Page 6: Time Series (Data Leaks) ---
 # ==============================================================================
 elif page == "Time Series (Data Leaks)":
-    st.header("Tab 4: Time Series & Data Leaks")
+    st.header("Time Series & Data Leaks")
     st.markdown("This tab demonstrates **data leaks**—using information from the future to train your model. The most common leak is **shuffling data** before splitting.")
 
     df_ts = get_timeseries_data(n_samples=300, noise=st.session_state.noise, seed=st.session_state.seed)
@@ -492,12 +661,12 @@ elif page == "Time Series (Data Leaks)":
     """)
 
     st.subheader("4. Performance Comparison: Data Leak vs. Correct Method")
-    n_lags = st.slider("Number of Lagged Features (Tab 4)", 1, 10, 3, key="tab4_lags")
-    split_pct = st.slider("Train/Test Split (Time-Based) (Tab 4)", 0.6, 0.9, 0.7, 0.05, key="tab4_split")
+    n_lags = st.slider("Number of Lagged Features", 1, 10, 3, key="tab4_lags")
+    split_pct = st.slider("Train/Test Split (Time-Based)", 0.6, 0.9, 0.7, 0.05, key="tab4_split")
     
     df_lagged = create_lagged_features(df_ts.copy(), lags=n_lags)
     X_features = df_lagged.drop(['y', 'time'], axis=1)
-    y_labels = df_lagged['y']
+    y_labels = df_lagdged['y']
     
     col_leak, col_correct = st.columns(2)
     with col_leak:
@@ -539,10 +708,10 @@ elif page == "Time Series (Data Leaks)":
     st.plotly_chart(fig_ts, use_container_width=True)
 
 # ==============================================================================
-# --- Page 5: Time Series Analysis (Fast Version) ---
+# --- Page 7: Time Series Analysis (Fast Version) ---
 # ==============================================================================
 elif page == "TS Analysis":
-    st.header("Tab 5: Time Series Analysis (Rolling Windows)")
+    st.header("Time Series Analysis (Rolling Windows)")
     st.markdown(
         """
         This is a fast, simple analysis technique called a **rolling window**.
@@ -618,109 +787,5 @@ elif page == "TS Analysis":
         * Change the **Rolling Window Size** slider. A larger window creates a smoother "Rolling Average" line.
         * **"Air Passengers"**: Notice how the "Rolling Std. Dev." (green line) *increases* over time? This means the volatility is growing.
         * **"Stationary (No Trend)"**: Notice how the "Rolling Average" stays flat (around 0) and the "Rolling Std. Dev." is also flat? This is the definition of a **stationary** series.
-        """
-    )
-    
-# ==============================================================================
-# --- Page 6: Decision Tree Classification ---
-# ==============================================================================
-elif page == "Decision Trees":
-    st.header("Tab 6: Decision Tree Classification")
-    st.markdown(
-        """
-        Unlike Logistic Regression (which finds a single linear boundary), a **Decision Tree**
-        asks a series of simple, axis-aligned questions to split the data into "pure"
-        groups (e.g., all "Fail" or all "Succeed").
-        
-        It builds this tree by finding the best question to ask at each step. "Best" is
-        measured by how much the question reduces **impurity**.
-        """
-    )
-    
-    st.subheader("1. Key Concepts: Gini vs. Entropy")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info(
-            """
-            #### Gini Impurity
-            * **Formula:** $G = 1 - \sum_{i=1}^{C} (p_i)^2$
-            * **What it is:** The probability of *incorrectly* classifying a randomly chosen
-                item if it were randomly labeled according to the class distribution.
-            * **Range:** 0 (perfectly pure, all one class) to 0.5 (perfectly mixed, 50/50).
-            * Tends to be faster and is the `sklearn` default.
-            """
-        )
-    with col2:
-        st.info(
-            """
-            #### Entropy
-            * **Formula:** $H = - \sum_{i=1}^{C} p_i \log_2(p_i)$
-            * **What it is:** A measure of information, or "disorder." A node with
-                high entropy is very mixed.
-            * **Range:** 0 (perfectly pure) to 1 (perfectly mixed).
-            * Tends to produce slightly more balanced trees.
-            """
-        )
-
-    st.subheader("2. Interactive Model (Manufacturing Example)")
-    st.markdown(
-        """
-        Here is the *same* manufacturing dataset from the Logistic Regression tab.
-        Change the controls to see how the tree's structure changes.
-        """
-    )
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        df_mfg = get_manufacturing_data(st.session_state.seed)
-        X_mfg = df_mfg.drop('failed_this_year', axis=1)
-        y_mfg = df_mfg['failed_this_year']
-        
-        criterion = st.selectbox("Impurity Criterion", ["gini", "entropy"])
-        max_depth = st.slider("Tree Max Depth", min_value=1, max_value=5, value=3)
-        
-        st.dataframe(df_mfg, height=300)
-
-    with col2:
-        tree_model = DecisionTreeClassifier(
-            criterion=criterion,
-            max_depth=max_depth,
-            random_state=st.session_state.seed
-        )
-        tree_model.fit(X_mfg, y_mfg)
-        
-        st.markdown("#### Visualized Decision Tree")
-        
-        # --- MORE ROBUST PLOTTING METHOD ---
-        # 1. Create a new matplotlib figure
-        fig, ax = plt.subplots(figsize=(12, 8))
-        
-        # 2. Plot the tree onto the figure's axes
-        plot_tree(
-            tree_model,
-            ax=ax,
-            feature_names=X_mfg.columns.tolist(),
-            class_names=["Succeed", "Fail"], # 0 = Succeed, 1 = Fail
-            filled=True,
-            rounded=True,
-            fontsize=10
-        )
-        
-        # 3. Pass the specific figure to streamlit
-        st.pyplot(fig)
-        
-        # 4. Clear the figure from memory
-        plt.close(fig)
-    
-    st.info(
-        """
-        **How to Read This Tree:**
-        * **Top Node (Root):** The first question the tree asks (e.g., `temperature <= 102.5`).
-        * **Gini/Entropy:** The impurity of the node. The goal is to reach 0.
-        * **Samples:** How many data points are in this node.
-        * **Value:** `[# of class 0, # of class 1]`. Here, `[Succeed, Fail]`.
-        * **Class:** The majority class in that node.
-        * **Leaves (Bottom Nodes):** The final predictions.
         """
     )
