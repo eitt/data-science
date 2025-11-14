@@ -11,6 +11,8 @@ from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.neural_network import MLPRegressor # FOR NEW ANN PAGE
+from sklearn.exceptions import ConvergenceWarning # FOR NEW ANN PAGE
 from sklearn.metrics import (
     mean_squared_error,
     r2_score,
@@ -68,7 +70,7 @@ with st.sidebar:
         "Train vs Test (Overfitting)", 
         "Logistic Regression",
         "Decision Trees",
-        "Neural Network (Manual Fit)",
+        "Neural Network Training", # Replaced "Manual Fit"
         "Time Series (Data Leaks)", 
         "TS Analysis"
     ]
@@ -180,12 +182,12 @@ def get_playground_data(dataset_name, n_samples, noise, seed):
         data = df['y']
     return data
 
-# Helper function for Tab 7
+# Helper function for Tab 7 (ANN)
 @st.cache_data
 def get_nn_data(seed, noise):
     np.random.seed(seed)
-    x = np.linspace(0, 1, 10) # 10 points
-    y_true = np.sin(2 * np.pi * x)
+    x = np.linspace(0, 1, 10).reshape(-1, 1) # 10 points, as 2D array
+    y_true = np.sin(2 * np.pi * x.ravel())
     y = y_true + np.random.randn(10) * noise
     return x, y, y_true
 
@@ -306,7 +308,6 @@ elif page == "Manual Linear Fit":
     @st.cache_data
     def calculate_sse_surface(x_data, y_data):
         # Create a grid of parameter values (b0, b1)
-        # Centered around true values (b0=2, b1=3)
         b0_vals = np.linspace(-2, 6, 40)  
         b1_vals = np.linspace(0, 6, 40)  
         sse_grid = np.zeros((40, 40))
@@ -326,7 +327,6 @@ elif page == "Manual Linear Fit":
     col1, col2 = st.columns([1, 2])
     with col1:
         st.subheader("Controls")
-        # Sliders are now linked to the cost surface grid
         b0 = st.slider("Intercept (β₀)", -2.0, 6.0, 0.0, 0.1) 
         b1 = st.slider("Slope (β₁)", 0.0, 6.0, 1.0, 0.1)     
         show_true_line = st.checkbox("Show true underlying line", value=False)
@@ -380,24 +380,20 @@ elif page == "Manual Linear Fit":
         
         fig_cost = go.Figure(data=[
             go.Contour(
-                z=sse_grid, # z[i,j] is SSE at y=b0_vals[i], x=b1_vals[j]
+                z=sse_grid, 
                 x=b1_vals,  # x-axis is Slope (b1)
                 y=b0_vals,  # y-axis is Intercept (b0)
-                colorscale='viridis_r', # _r reverses: blue is low, yellow is high
+                colorscale='viridis_r', # blue is low, yellow is high
                 ncontours=30,
                 name='SSE Surface'
             )
         ])
-
-        # Add dot for current slider position
         fig_cost.add_trace(go.Scatter(
             x=[b1], y=[b0],
             mode='markers',
             name='Your Manual Fit',
             marker=dict(color='red', size=12, symbol='x')
         ))
-
-        # Add dot for OLS solution if it exists
         if 'ols_b0' in st.session_state:
             fig_cost.add_trace(go.Scatter(
                 x=[st.session_state.ols_b1], y=[st.session_state.ols_b0],
@@ -405,7 +401,6 @@ elif page == "Manual Linear Fit":
                 name='Optimal OLS Fit (The Minimum)',
                 marker=dict(color='cyan', size=12, symbol='star')
             ))
-            
         fig_cost.update_layout(
             title="Cost Surface (SSE) vs. Parameters",
             xaxis_title="Slope (β₁)",
@@ -704,92 +699,96 @@ elif page == "Decision Trees":
     )
 
 # ==============================================================================
-# --- Page 6: Neural Network (Manual Fit) ---
+# --- Page 6: Neural Network Training (REPLACES Manual Fit) ---
 # ==============================================================================
-elif page == "Neural Network (Manual Fit)":
-    st.header("Neural Network (Manual Fit)")
+elif page == "Neural Network Training":
+    st.header("Neural Network Training (Backpropagation)")
     st.markdown(
         """
-        This is a simple 1-3-1 Neural Network. It uses the **ReLU** activation function
-        in the hidden layer. Try to manually adjust the weights and biases to
-        make the orange "Forecast" line match the "True" sine wave.
+        This page demonstrates **Backpropagation** (Gradient Descent for networks).
+        We'll use `sklearn`'s `MLPRegressor` to find the *actual* best weights
+        and biases to fit the 10-point sine wave from your `Backpropagation.ipynb` notebook.
         
-        This demonstrates how individual neurons, each a simple linear unit + activation,
-        can be combined to approximate complex, non-linear functions.
+        Press **"Train Model"** to see the model learn.
         """
     )
 
     # Get data
     x_data, y_data, y_true = get_nn_data(st.session_state.seed, st.session_state.noise)
-    x_plot = np.linspace(0, 1, 100) # For a smooth true line
+    x_plot = np.linspace(0, 1, 100).reshape(-1, 1) # For a smooth true line
 
-    col1, col2 = st.columns([1, 2])
-
+    # --- 1. Controls ---
+    st.subheader("1. Hyperparameters")
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.subheader("Network Weights & Biases")
-        st.markdown("Structure: 1 Input -> 3 Hidden (ReLU) -> 1 Output (Linear)")
-
-        with st.expander("Input -> Hidden Layer"):
-            w_i1 = st.slider("Weight (x -> h1)", -5.0, 5.0, 1.0)
-            b_h1 = st.slider("Bias (h1)", -2.0, 2.0, 0.0)
-            w_i2 = st.slider("Weight (x -> h2)", -5.0, 5.0, -2.0)
-            b_h2 = st.slider("Bias (h2)", -2.0, 2.0, 0.5)
-            w_i3 = st.slider("Weight (x -> h3)", -5.0, 5.0, 3.0)
-            b_h3 = st.slider("Bias (h3)", -2.0, 2.0, -1.0)
-        
-        with st.expander("Hidden -> Output Layer"):
-            w_h1_o = st.slider("Weight (h1 -> y)", -5.0, 5.0, 1.0)
-            w_h2_o = st.slider("Weight (h2 -> y)", -5.0, 5.0, -1.0)
-            w_h3_o = st.slider("Weight (h3 -> y)", -5.0, 5.0, 0.5)
-            b_o = st.slider("Bias (y)", -2.0, 2.0, 0.0)
-
-    # --- Forward Pass Calculation ---
-    def relu(z):
-        return np.maximum(0, z)
-
-    z_h1_plot = (w_i1 * x_plot) + b_h1
-    a_h1_plot = relu(z_h1_plot)
-    z_h2_plot = (w_i2 * x_plot) + b_h2
-    a_h2_plot = relu(z_h2_plot)
-    z_h3_plot = (w_i3 * x_plot) + b_h3
-    a_h3_plot = relu(z_h3_plot)
-    z_o_plot = (w_h1_o * a_h1_plot) + (w_h2_o * a_h2_plot) + (w_h3_o * a_h3_plot) + b_o
-    y_pred_plot = z_o_plot 
-    
-    z_h1_data = (w_i1 * x_data) + b_h1
-    a_h1_data = relu(z_h1_data)
-    z_h2_data = (w_i2 * x_data) + b_h2
-    a_h2_data = relu(z_h2_data)
-    z_h3_data = (w_i3 * x_data) + b_h3
-    a_h3_data = relu(z_h3_data)
-    z_o_data = (w_h1_o * a_h1_data) + (w_h2_o * a_h2_data) + (w_h3_o * a_h3_data) + b_o
-    y_pred_data = z_o_data
-
-    # --- Calculate RMSE ---
-    rmse = np.sqrt(mean_squared_error(y_data, y_pred_data))
-    with col1:
-        st.subheader("Performance")
-        st.metric("RMSE (on 10 points)", f"{rmse:.3f}")
-        st.markdown("Try to get the RMSE as low as possible!")
-
-        st.subheader("Data & Forecasts")
-        df_nn = pd.DataFrame({
-            'x': x_data,
-            'y_real': y_data.round(2),
-            'y_forecasted': y_pred_data.round(2)
-        })
-        st.dataframe(df_nn, height=385)
-
+        n_neurons = st.slider("Hidden Neurons", 3, 100, 10)
     with col2:
-        st.subheader("Real vs. Forecasted Values")
+        learning_rate = st.select_slider("Learning Rate", 
+                                         options=[0.0001, 0.001, 0.01, 0.1, 1.0], 
+                                         value=0.01)
+    with col3:
+        n_epochs = st.number_input("Total Epochs", 100, 10000, 2000)
+
+    # --- 2. Training ---
+    st.subheader("2. Training Animation")
+    
+    if st.button("Train Model"):
+        col1, col2 = st.columns(2)
+        with col1:
+            plot_placeholder = st.empty()
+        with col2:
+            loss_placeholder = st.empty()
+
+        # Create the model
+        model = MLPRegressor(
+            hidden_layer_sizes=(n_neurons,),
+            activation='relu',
+            solver='sgd',
+            learning_rate_init=learning_rate,
+            max_iter=1, # We control iterations manually
+            warm_start=True, # Allow retraining
+            random_state=st.session_state.seed
+        )
         
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=x_data, y=y_data, mode='markers', name='Data Points (Real)', marker=dict(size=10)))
-        fig.add_trace(go.Scatter(x=x_plot, y=np.sin(2 * np.pi * x_plot), mode='lines', name='True Sine Wave', line=dict(dash='dash', color='green')))
-        fig.add_trace(go.Scatter(x=x_plot, y=y_pred_plot, mode='lines', name='ANN Forecast (Manual)', line=dict(color='orange', width=3)))
+        loss_history = []
+        n_batches = 50 # Number of animation frames
+        epochs_per_batch = n_epochs // n_batches
         
-        fig.update_layout(title="Manual ANN Fit", xaxis_title="x", yaxis_title="y", yaxis_range=[-2.5, 2.5])
-        st.plotly_chart(fig, use_container_width=True)
+        with st.spinner("Training model..."):
+            st.warning("Training in progress... (Convergence warnings are normal!)", icon="🤖")
+            
+            for i in range(n_batches):
+                # Suppress convergence warnings
+                with st.empty(): 
+                    model.fit(x_data, y_data)
+                
+                loss = model.loss_
+                loss_history.append(loss)
+                
+                # Update plots
+                y_pred_plot = model.predict(x_plot)
+                
+                # Plot 1: Model Fit
+                fig_fit = go.Figure()
+                fig_fit.add_trace(go.Scatter(x=x_data.ravel(), y=y_data, mode='markers', name='Data Points (Real)', marker=dict(size=10)))
+                fig_fit.add_trace(go.Scatter(x=x_plot.ravel(), y=np.sin(2 * np.pi * x_plot.ravel()), mode='lines', name='True Sine Wave', line=dict(dash='dash', color='green')))
+                fig_fit.add_trace(go.Scatter(x=x_plot.ravel(), y=y_pred_plot, mode='lines', name='ANN Forecast', line=dict(color='orange', width=3)))
+                fig_fit.update_layout(title=f"Model Fit (Epoch {(i+1) * epochs_per_batch})", xaxis_title="x", yaxis_title="y", yaxis_range=[-2.5, 2.5], margin=dict(l=0, r=0, b=0, t=40))
+                plot_placeholder.plotly_chart(fig_fit, use_container_width=True)
+                
+                # Plot 2: Loss Curve
+                fig_loss = go.Figure()
+                fig_loss.add_trace(go.Scatter(x=np.arange(len(loss_history)), y=loss_history, mode='lines', name='Loss'))
+                fig_loss.update_layout(title="Training Loss (RMSE)", xaxis_title="Training Batch", yaxis_title="Loss", yaxis_type="log", margin=dict(l=0, r=0, b=0, t=40))
+                loss_placeholder.plotly_chart(fig_loss, use_container_width=True)
+                
+                # Re-fit for next batch
+                model.max_iter += epochs_per_batch
+                
+            st.success("Training complete!")
+    else:
+        st.info("Click 'Train Model' to start the backpropagation process.")
+
 
 # ==============================================================================
 # --- Page 7: Time Series (Data Leaks) ---
