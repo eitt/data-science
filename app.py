@@ -203,6 +203,8 @@ st.title("Understanding Supervised Learning")
 # ==============================================================================
 if page == "Introduction":
     st.header("Welcome to the Supervised Learning App")
+    st.markdown("By **Leonardo H. Talero-Sarmiento** "
+                "[View profile](https://apolo.unab.edu.co/en/persons/leonardo-talero)")
     
     st.markdown(
         """
