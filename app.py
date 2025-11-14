@@ -225,9 +225,9 @@ if page == "Introduction":
         # NOTE: This assumes 'image_9095e1.png' is in the same directory as your app.py
         # If you deployed to Streamlit Cloud, you must push this image to your GitHub repo.
         try:
-            st.image("image_9095e1.jpg")
+            st.image("image_9095e1.jpeg")
         except FileNotFoundError:
-            st.error("Profile image not found. Make sure 'image_9095e1.jpg' is in your repo.")
+            st.error("Profile image not found. Make sure 'image_9095e1.jpeg' is in your repo.")
 
     with col2:
         st.markdown(
