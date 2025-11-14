@@ -709,7 +709,7 @@ elif page == "Neural Network Training":
         We'll use `sklearn`'s `MLPRegressor` to find the *actual* best weights
         and biases to fit the 10-point sine wave from your `Backpropagation.ipynb` notebook.
         
-        Press **"Train Model"** to see the model learn.
+        Configure the network's architecture, then press **"Train Model"** to see it learn.
         """
     )
 
@@ -717,20 +717,50 @@ elif page == "Neural Network Training":
     x_data, y_data, y_true = get_nn_data(st.session_state.seed, st.session_state.noise)
     x_plot = np.linspace(0, 1, 100).reshape(-1, 1) # For a smooth true line
 
-    # --- 1. Controls ---
-    st.subheader("1. Hyperparameters")
-    col1, col2, col3 = st.columns(3)
+    # --- 1. Architecture Controls ---
+    st.subheader("1. Network Architecture")
+    st.markdown("Define the structure of your neural network.")
+    
+    n_layers = st.slider("Number of Hidden Layers", 1, 4, 1)
+    
+    hidden_neurons_list = []
+    cols = st.columns(n_layers)
+    for i in range(n_layers):
+        with cols[i]:
+            neurons = st.slider(f"Neurons in Layer {i+1}", 1, 50, 10, key=f"layer_{i}_neurons")
+            hidden_neurons_list.append(neurons)
+    hidden_layer_sizes = tuple(hidden_neurons_list) # e.g., (10,) or (20, 10)
+
+    # --- 2. Parameter Calculation ---
+    st.subheader("2. Model Complexity")
+    
+    def calculate_total_parameters(layer_sizes):
+        total_params = 0
+        for i in range(1, len(layer_sizes)):
+            weights = layer_sizes[i-1] * layer_sizes[i]
+            biases = layer_sizes[i]
+            total_params += (weights + biases)
+        return total_params
+
+    # [1] input, *hidden_layer_sizes, [1] output
+    full_layer_list = [1] + list(hidden_layer_sizes) + [1] 
+    total_params = calculate_total_parameters(full_layer_list)
+    
+    st.metric("Total Trainable Parameters (Weights & Biases)", f"{total_params}")
+    st.markdown("More parameters make the model more 'flexible' but also slower and more prone to overfitting.")
+
+    # --- 3. Training Controls ---
+    st.subheader("3. Training Controls")
+    col1, col2 = st.columns(2)
     with col1:
-        n_neurons = st.slider("Hidden Neurons", 3, 100, 10)
-    with col2:
         learning_rate = st.select_slider("Learning Rate", 
                                          options=[0.0001, 0.001, 0.01, 0.1, 1.0], 
                                          value=0.01)
-    with col3:
+    with col2:
         n_epochs = st.number_input("Total Epochs", 100, 10000, 2000)
 
-    # --- 2. Training ---
-    st.subheader("2. Training Animation")
+    # --- 4. Training ---
+    st.subheader("4. Training Animation")
     
     if st.button("Train Model"):
         col1, col2 = st.columns(2)
@@ -741,7 +771,7 @@ elif page == "Neural Network Training":
 
         # Create the model
         model = MLPRegressor(
-            hidden_layer_sizes=(n_neurons,),
+            hidden_layer_sizes=hidden_layer_sizes, # Use dynamic sizes
             activation='relu',
             solver='sgd',
             learning_rate_init=learning_rate,
@@ -752,15 +782,16 @@ elif page == "Neural Network Training":
         
         loss_history = []
         n_batches = 50 # Number of animation frames
-        epochs_per_batch = n_epochs // n_batches
+        epochs_per_batch = max(1, n_epochs // n_batches)
         
         with st.spinner("Training model..."):
             st.warning("Training in progress... (Convergence warnings are normal!)", icon="🤖")
             
             for i in range(n_batches):
-                # Suppress convergence warnings
-                with st.empty(): 
+                try:
                     model.fit(x_data, y_data)
+                except ConvergenceWarning:
+                    pass # Ignore warnings during partial fits
                 
                 loss = model.loss_
                 loss_history.append(loss)
@@ -779,13 +810,30 @@ elif page == "Neural Network Training":
                 # Plot 2: Loss Curve
                 fig_loss = go.Figure()
                 fig_loss.add_trace(go.Scatter(x=np.arange(len(loss_history)), y=loss_history, mode='lines', name='Loss'))
-                fig_loss.update_layout(title="Training Loss (RMSE)", xaxis_title="Training Batch", yaxis_title="Loss", yaxis_type="log", margin=dict(l=0, r=0, b=0, t=40))
+                fig_loss.update_layout(title="Training Loss (Cost)", xaxis_title="Training Batch", yaxis_title="Loss", yaxis_type="log", margin=dict(l=0, r=0, b=0, t=40))
                 loss_placeholder.plotly_chart(fig_loss, use_container_width=True)
                 
                 # Re-fit for next batch
                 model.max_iter += epochs_per_batch
                 
             st.success("Training complete!")
+            
+            # --- 5. Final Performance ---
+            st.subheader("5. Model Performance")
+            st.latex(r"\text{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2}")
+            
+            y_pred_data = model.predict(x_data)
+            final_rmse = np.sqrt(mean_squared_error(y_data, y_pred_data))
+            st.metric("Final Model RMSE (on 10 points)", f"{final_rmse:.4f}")
+
+            st.subheader("Final Data & Forecasts")
+            df_nn = pd.DataFrame({
+                'x': x_data.ravel(),
+                'y_real': y_data.round(2),
+                'y_forecasted': y_pred_data.round(2)
+            })
+            st.dataframe(df_nn, use_container_width=True)
+    
     else:
         st.info("Click 'Train Model' to start the backpropagation process.")
 
