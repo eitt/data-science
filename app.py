@@ -11,8 +11,8 @@ from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.neural_network import MLPRegressor # FOR NEW ANN PAGE
-from sklearn.exceptions import ConvergenceWarning # FOR NEW ANN PAGE
+from sklearn.neural_network import MLPRegressor # FOR ANN PAGE
+from sklearn.exceptions import ConvergenceWarning # FOR ANN PAGE
 from sklearn.metrics import (
     mean_squared_error,
     r2_score,
@@ -27,7 +27,7 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 from sklearn.datasets import make_classification
-from sklearn.tree import DecisionTreeClassifier, plot_tree # For Tab 6
+from sklearn.tree import DecisionTreeClassifier, plot_tree # For Decision Tree Page
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -64,7 +64,10 @@ with st.sidebar:
     # --- Page navigation ---
     st.markdown("---")
     st.header("Navigation")
+    
+    # --- NEW: Re-organized Conceptual Flow ---
     page_options = [
+        "Introduction", # NEW
         "Gradient Descent",
         "Manual Linear Fit", 
         "Train vs Test (Overfitting)", 
@@ -196,9 +199,62 @@ def get_nn_data(seed, noise):
 st.title("Understanding Supervised Learning")
 
 # ==============================================================================
-# --- Page 1: Gradient Descent ---
+# --- NEW: Page 1: Introduction ---
 # ==============================================================================
-if page == "Gradient Descent":
+if page == "Introduction":
+    st.header("Welcome to the Supervised Learning App")
+    
+    st.markdown(
+        """
+        This interactive application is designed to provide a hands-on understanding of
+        the core concepts in supervised machine learning. 
+        
+        We will build intuition for how models "learn" by exploring optimization,
+        and then apply these concepts to fundamental models for both regression and classification.
+        
+        Use the sidebar to navigate through the modules.
+        """
+    )
+    
+    st.subheader("About the Author")
+    
+    # Using columns to place image beside the bio
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        # NOTE: This assumes 'image_9095e1.png' is in the same directory as your app.py
+        # If you deployed to Streamlit Cloud, you must push this image to your GitHub repo.
+        try:
+            st.image("image_9095e1.png")
+        except FileNotFoundError:
+            st.error("Profile image not found. Make sure 'image_9095e1.png' is in your repo.")
+
+    with col2:
+        st.markdown(
+            """
+            **Leonardo H. Talero-Sarmiento** is a Ph.D. in Engineering from the 
+            Universidad Autónoma de Bucaramanga, with expertise in mathematical modeling, 
+            data analytics, operations research, manufacturing systems, process 
+            improvement and technology adoption. 
+            
+            His research addresses decision-making and production-planning challenges in 
+            agricultural and industrial contexts, applying operations research, 
+            bibliometric analysis, systematic reviews, and machine-learning methods 
+            to strengthen value-chain resilience, optimize healthcare delivery, 
+            and drive digital transformation. 
+            
+            He regularly publishes in leading peer-reviewed journals, including *Heliyon, 
+            Cogent Engineering, Ecological Informatics, AgriEngineering, 
+            Big Data and Cognitive Computing, Digital Policy, Regulation and Governance, 
+            Revista Colombiana de Computación, Suma de Negocios, IngeCUC, 
+            Apuntes del Cenes, Estudios Gerenciales* and *Contaduría y Administración*.
+            """
+        )
+
+# ==============================================================================
+# --- Page 2: Gradient Descent ---
+# ==============================================================================
+elif page == "Gradient Descent":
     st.header("Gradient Descent in a Sandpit")
     st.markdown(
         """
@@ -210,7 +266,6 @@ if page == "Gradient Descent":
         """
     )
 
-    # --- 1. Define the Function and its Gradient ---
     def cost_function(x, y):
         return x**2 + 2*y**2
 
@@ -220,78 +275,58 @@ if page == "Gradient Descent":
         return grad_x, grad_y
 
     col1, col2 = st.columns([1, 2])
-
     with col1:
         st.subheader("Controls")
-        
         start_x = st.slider("Start Position (x)", -10.0, 10.0, 8.0)
         start_y = st.slider("Start Position (y)", -10.0, 10.0, 6.0)
-        
         learning_rate = st.slider("Learning Rate (γ)", 0.01, 1.0, 0.1, 0.01,
                                   help="How big of a step to take. Try a large value (e.g., > 0.5) to see it fail!")
-        
         n_steps = st.slider("Number of Steps", 10, 100, 30)
-
         st.info(
             """
             **Try This:**
             * **High Learning Rate (e.g., 0.6):** Watch the point "overshoot" the minimum and diverge!
             * **Low Learning Rate (e.g., 0.01):** Watch how slowly it converges.
-            * **Start Position:** See how the path always moves perpendicular to the contour lines.
             """
         )
 
-    # --- 2. Run Gradient Descent ---
     path = []
     current_x, current_y = start_x, start_y
-    
     for i in range(n_steps):
         path.append((current_x, current_y))
         grad_x, grad_y = gradient(current_x, current_y)
         current_x = current_x - learning_rate * grad_x
         current_y = current_y - learning_rate * grad_y
-        
     path = np.array(path)
     path_z = cost_function(path[:, 0], path[:, 1])
 
-    # --- 3. Create Plots ---
     with col2:
-        # Create 3D Surface
         x_grid = np.linspace(-10, 10, 50)
         y_grid = np.linspace(-10, 10, 50)
         X_mesh, Y_mesh = np.meshgrid(x_grid, y_grid)
         Z_mesh = cost_function(X_mesh, Y_mesh)
 
-        fig_3d = go.Figure(data=[
-            go.Surface(z=Z_mesh, x=X_mesh, y=Y_mesh, opacity=0.7, colorscale='viridis')
-        ])
+        fig_3d = go.Figure(data=[go.Surface(z=Z_mesh, x=X_mesh, y=Y_mesh, opacity=0.7, colorscale='viridis')])
         fig_3d.add_trace(go.Scatter3d(
             x=path[:, 0], y=path[:, 1], z=path_z,
-            mode='lines+markers',
-            name='Gradient Path',
-            line=dict(color='red', width=4),
-            marker=dict(size=4)
+            mode='lines+markers', name='Gradient Path',
+            line=dict(color='red', width=4), marker=dict(size=4)
         ))
         fig_3d.update_layout(title="3D View: The 'Sandpit' (Cost Surface)", height=400, margin=dict(l=0, r=0, b=0, t=40))
         st.plotly_chart(fig_3d, use_container_width=True)
 
-        # Create 2D Contour Plot
-        fig_2d = go.Figure(data=[
-            go.Contour(z=Z_mesh, x=x_grid, y=y_grid, colorscale='viridis', ncontours=20)
-        ])
+        fig_2d = go.Figure(data=[go.Contour(z=Z_mesh, x=x_grid, y=y_grid, colorscale='viridis', ncontours=20)])
         fig_2d.add_trace(go.Scatter(
             x=path[:, 0], y=path[:, 1],
-            mode='lines+markers',
-            name='Gradient Path',
-            line=dict(color='red', width=3),
-            marker=dict(size=6)
+            mode='lines+markers', name='Gradient Path',
+            line=dict(color='red', width=3), marker=dict(size=6)
         ))
         fig_2d.update_layout(title="2D View: Path to the Minimum", height=400, margin=dict(l=0, r=0, b=0, t=40))
         st.plotly_chart(fig_2d, use_container_width=True)
 
 
 # ==============================================================================
-# --- Page 2: Manual Linear Fit (NOW WITH COST SURFACE) ---
+# --- Page 3: Manual Linear Fit (WITH COST SURFACE) ---
 # ==============================================================================
 elif page == "Manual Linear Fit":
     st.header("Manual Linear Fit")
@@ -304,23 +339,17 @@ elif page == "Manual Linear Fit":
         """
     )
     
-    # --- This function calculates the cost surface ---
     @st.cache_data
     def calculate_sse_surface(x_data, y_data):
-        # Create a grid of parameter values (b0, b1)
         b0_vals = np.linspace(-2, 6, 40)  
         b1_vals = np.linspace(0, 6, 40)  
         sse_grid = np.zeros((40, 40))
-        
-        # Calculate SSE for each (b0, b1) pair
         for i, b0 in enumerate(b0_vals):
             for j, b1 in enumerate(b1_vals):
                 y_pred = b0 + b1 * x_data
                 sse = np.sum((y_data - y_pred)**2)
                 sse_grid[i, j] = sse
-                
         return b0_vals, b1_vals, sse_grid
-    # --- End of new function ---
 
     x, y, true_b0, true_b1 = get_linear_data(st.session_state.n_samples, st.session_state.noise, st.session_state.seed)
     
@@ -353,7 +382,6 @@ elif page == "Manual Linear Fit":
             st.success(f"Optimal OLS Fit: β₀ = {st.session_state.ols_b0:.2f}, β₁ = {st.session_state.ols_b1:.2f}")
 
     with col2:
-        # --- PLOT 1: The original scatter plot ---
         st.subheader("Model Space (Data)")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Data (x, y)'))
@@ -374,7 +402,6 @@ elif page == "Manual Linear Fit":
         fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=400, margin=dict(l=0, r=0, b=0, t=40))
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- PLOT 2: The new cost surface plot ---
         st.subheader("Parameter Space (Cost Surface)")
         b0_vals, b1_vals, sse_grid = calculate_sse_surface(x, y)
         
@@ -411,7 +438,7 @@ elif page == "Manual Linear Fit":
         st.plotly_chart(fig_cost, use_container_width=True)
 
 # ==============================================================================
-# --- Page 3: Training vs Testing: Overfitting ---
+# --- Page 4: Training vs Testing: Overfitting ---
 # ==============================================================================
 elif page == "Train vs Test (Overfitting)":
     st.header("Training vs Testing: Overfitting")
@@ -491,12 +518,11 @@ elif page == "Train vs Test (Overfitting)":
         min_test_err_deg = degrees[min_test_err_idx]
         fig_err.add_annotation(x=min_test_err_deg, y=test_errors[min_test_err_idx], text=f"Min Test Error (Degree {min_test_err_deg})", showarrow=True, arrowhead=1, ax=20, ay=-40)
         fig_err.add_vline(x=min_test_err_deg, line=dict(color='red', dash='dot'))
-        # --- FIX: Was height=4.00 ---
         fig_err.update_layout(title="Train and Test Error vs. Model Complexity", xaxis_title="Polynomial Degree", yaxis_title=f"Error ({metric_choice})", height=400)
         st.plotly_chart(fig_err, use_container_width=True)
 
 # ==============================================================================
-# --- Page 4: Logistic Regression ---
+# --- Page 5: Logistic Regression ---
 # ==============================================================================
 elif page == "Logistic Regression":
     st.header("Logistic Regression")
@@ -611,7 +637,7 @@ elif page == "Logistic Regression":
         )
 
 # ==============================================================================
-# --- Page 5: Decision Trees ---
+# --- Page 6: Decision Trees ---
 # ==============================================================================
 elif page == "Decision Trees":
     st.header("Decision Tree Classification")
@@ -699,7 +725,7 @@ elif page == "Decision Trees":
     )
 
 # ==============================================================================
-# --- Page 6: Neural Network Training (REPLACES Manual Fit) ---
+# --- Page 7: Neural Network Training (REPLACES Manual Fit) ---
 # ==============================================================================
 elif page == "Neural Network Training":
     st.header("Neural Network Training (Backpropagation)")
@@ -843,7 +869,7 @@ elif page == "Neural Network Training":
 
 
 # ==============================================================================
-# --- Page 7: Time Series (Data Leaks) ---
+# --- Page 8: Time Series (Data Leaks) ---
 # ==============================================================================
 elif page == "Time Series (Data Leaks)":
     st.header("Time Series & Data Leaks")
@@ -915,7 +941,7 @@ elif page == "Time Series (Data Leaks)":
     st.plotly_chart(fig_ts, use_container_width=True)
 
 # ==============================================================================
-# --- Page 8: Time Series Analysis (Fast Version) ---
+# --- Page 9: Time Series Analysis (Fast Version) ---
 # ==============================================================================
 elif page == "TS Analysis":
     st.header("Time Series Analysis (Rolling Windows)")
