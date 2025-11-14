@@ -66,11 +66,11 @@ with st.sidebar:
     st.header("Navigation")
     page_options = [
         "Gradient Descent",
-        "Manual Linear Fit", # This page is now updated
+        "Manual Linear Fit", 
         "Train vs Test (Overfitting)", 
         "Logistic Regression",
         "Decision Trees",
-        "Neural Network Training", # Replaced "Manual Fit"
+        "Neural Network Training", 
         "Time Series (Data Leaks)", 
         "TS Analysis"
     ]
@@ -762,7 +762,11 @@ elif page == "Neural Network Training":
     # --- 4. Training ---
     st.subheader("4. Training Animation")
     
-    if st.button("Train Model"):
+    # DEBUG: Check if hidden_layer_sizes is empty
+    if not hidden_layer_sizes:
+        st.error("Error: 'hidden_layer_sizes' is empty. This should not happen. Please reload.")
+    
+    if st.button("Train Model") and hidden_layer_sizes:
         col1, col2 = st.columns(2)
         with col1:
             plot_placeholder = st.empty()
