@@ -63,8 +63,8 @@ with st.sidebar:
     st.markdown("---")
     st.header("Navigation")
     page_options = [
-        "Gradient Descent",  # NEW PAGE
-        "Manual Linear Fit", 
+        "Gradient Descent",
+        "Manual Linear Fit", # This page is now updated
         "Train vs Test (Overfitting)", 
         "Logistic Regression",
         "Decision Trees",
@@ -194,7 +194,7 @@ def get_nn_data(seed, noise):
 st.title("Understanding Supervised Learning")
 
 # ==============================================================================
-# --- NEW: Page 1: Gradient Descent ---
+# --- Page 1: Gradient Descent ---
 # ==============================================================================
 if page == "Gradient Descent":
     st.header("Gradient Descent in a Sandpit")
@@ -209,11 +209,9 @@ if page == "Gradient Descent":
     )
 
     # --- 1. Define the Function and its Gradient ---
-    # This is our "sandpit" or "cost function"
     def cost_function(x, y):
         return x**2 + 2*y**2
 
-    # This is the gradient (partial derivatives)
     def gradient(x, y):
         grad_x = 2 * x
         grad_y = 4 * y
@@ -248,8 +246,6 @@ if page == "Gradient Descent":
     for i in range(n_steps):
         path.append((current_x, current_y))
         grad_x, grad_y = gradient(current_x, current_y)
-        
-        # This is the gradient descent step
         current_x = current_x - learning_rate * grad_x
         current_y = current_y - learning_rate * grad_y
         
@@ -267,8 +263,6 @@ if page == "Gradient Descent":
         fig_3d = go.Figure(data=[
             go.Surface(z=Z_mesh, x=X_mesh, y=Y_mesh, opacity=0.7, colorscale='viridis')
         ])
-        
-        # Add the path to the 3D plot
         fig_3d.add_trace(go.Scatter3d(
             x=path[:, 0], y=path[:, 1], z=path_z,
             mode='lines+markers',
@@ -276,7 +270,6 @@ if page == "Gradient Descent":
             line=dict(color='red', width=4),
             marker=dict(size=4)
         ))
-        
         fig_3d.update_layout(title="3D View: The 'Sandpit' (Cost Surface)", height=400, margin=dict(l=0, r=0, b=0, t=40))
         st.plotly_chart(fig_3d, use_container_width=True)
 
@@ -284,8 +277,6 @@ if page == "Gradient Descent":
         fig_2d = go.Figure(data=[
             go.Contour(z=Z_mesh, x=x_grid, y=y_grid, colorscale='viridis', ncontours=20)
         ])
-        
-        # Add the path to the 2D plot
         fig_2d.add_trace(go.Scatter(
             x=path[:, 0], y=path[:, 1],
             mode='lines+markers',
@@ -293,25 +284,51 @@ if page == "Gradient Descent":
             line=dict(color='red', width=3),
             marker=dict(size=6)
         ))
-        
         fig_2d.update_layout(title="2D View: Path to the Minimum", height=400, margin=dict(l=0, r=0, b=0, t=40))
         st.plotly_chart(fig_2d, use_container_width=True)
 
 
 # ==============================================================================
-# --- Page 2: Manual Linear Fit ---
+# --- Page 2: Manual Linear Fit (NOW WITH COST SURFACE) ---
 # ==============================================================================
 elif page == "Manual Linear Fit":
     st.header("Manual Linear Fit")
-    st.markdown("Try to minimize SSE manually. Then click 'Compute OLS' to compare.")
+    st.markdown(
+        """
+        Try to minimize SSE manually. This page connects to Gradient Descent: the plot on the
+        right is the 'cost surface' or 'sandpit' for our model. 
+        
+        **Your goal is to find the bottom of the blue valley by moving the sliders.**
+        """
+    )
     
+    # --- This function calculates the cost surface ---
+    @st.cache_data
+    def calculate_sse_surface(x_data, y_data):
+        # Create a grid of parameter values (b0, b1)
+        # Centered around true values (b0=2, b1=3)
+        b0_vals = np.linspace(-2, 6, 40)  
+        b1_vals = np.linspace(0, 6, 40)  
+        sse_grid = np.zeros((40, 40))
+        
+        # Calculate SSE for each (b0, b1) pair
+        for i, b0 in enumerate(b0_vals):
+            for j, b1 in enumerate(b1_vals):
+                y_pred = b0 + b1 * x_data
+                sse = np.sum((y_data - y_pred)**2)
+                sse_grid[i, j] = sse
+                
+        return b0_vals, b1_vals, sse_grid
+    # --- End of new function ---
+
     x, y, true_b0, true_b1 = get_linear_data(st.session_state.n_samples, st.session_state.noise, st.session_state.seed)
     
     col1, col2 = st.columns([1, 2])
     with col1:
         st.subheader("Controls")
-        b0 = st.slider("Intercept (β₀)", -5.0, 5.0, 0.0, 0.1)
-        b1 = st.slider("Slope (β₁)", -5.0, 5.0, 1.0, 0.1)
+        # Sliders are now linked to the cost surface grid
+        b0 = st.slider("Intercept (β₀)", -2.0, 6.0, 0.0, 0.1) 
+        b1 = st.slider("Slope (β₁)", 0.0, 6.0, 1.0, 0.1)     
         show_true_line = st.checkbox("Show true underlying line", value=False)
         show_residuals = st.checkbox("Show vertical projections (residuals)", value=True)
         
@@ -336,6 +353,8 @@ elif page == "Manual Linear Fit":
             st.success(f"Optimal OLS Fit: β₀ = {st.session_state.ols_b0:.2f}, β₁ = {st.session_state.ols_b1:.2f}")
 
     with col2:
+        # --- PLOT 1: The original scatter plot ---
+        st.subheader("Model Space (Data)")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Data (x, y)'))
         fig.add_trace(go.Scatter(x=x, y=y_pred, mode='lines', name='Manual Fit (ŷ)', line=dict(color='orange', width=2)))
@@ -352,12 +371,49 @@ elif page == "Manual Linear Fit":
             for i in range(len(x)):
                 fig.add_shape(type="line", x0=x[i], y0=y_pred[i], x1=x[i], y1=y[i], line=dict(color="red", width=1, dash="dot"))
         
-        fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=500)
+        fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=400, margin=dict(l=0, r=0, b=0, t=40))
         st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Data and Residuals")
-    df_linear = pd.DataFrame({'x': x, 'y': y, 'ŷ (prediction)': y_pred, 'Residual (eᵢ)': residuals})
-    st.dataframe(df_linear.head(), use_container_width=True)
+        # --- PLOT 2: The new cost surface plot ---
+        st.subheader("Parameter Space (Cost Surface)")
+        b0_vals, b1_vals, sse_grid = calculate_sse_surface(x, y)
+        
+        fig_cost = go.Figure(data=[
+            go.Contour(
+                z=sse_grid, # z[i,j] is SSE at y=b0_vals[i], x=b1_vals[j]
+                x=b1_vals,  # x-axis is Slope (b1)
+                y=b0_vals,  # y-axis is Intercept (b0)
+                colorscale='viridis_r', # _r reverses: blue is low, yellow is high
+                ncontours=30,
+                name='SSE Surface'
+            )
+        ])
+
+        # Add dot for current slider position
+        fig_cost.add_trace(go.Scatter(
+            x=[b1], y=[b0],
+            mode='markers',
+            name='Your Manual Fit',
+            marker=dict(color='red', size=12, symbol='x')
+        ))
+
+        # Add dot for OLS solution if it exists
+        if 'ols_b0' in st.session_state:
+            fig_cost.add_trace(go.Scatter(
+                x=[st.session_state.ols_b1], y=[st.session_state.ols_b0],
+                mode='markers',
+                name='Optimal OLS Fit (The Minimum)',
+                marker=dict(color='cyan', size=12, symbol='star')
+            ))
+            
+        fig_cost.update_layout(
+            title="Cost Surface (SSE) vs. Parameters",
+            xaxis_title="Slope (β₁)",
+            yaxis_title="Intercept (β₀)",
+            height=400,
+            margin=dict(l=0, r=0, b=0, t=40)
+        )
+        st.plotly_chart(fig_cost, use_container_width=True)
 
 # ==============================================================================
 # --- Page 3: Training vs Testing: Overfitting ---
@@ -440,6 +496,7 @@ elif page == "Train vs Test (Overfitting)":
         min_test_err_deg = degrees[min_test_err_idx]
         fig_err.add_annotation(x=min_test_err_deg, y=test_errors[min_test_err_idx], text=f"Min Test Error (Degree {min_test_err_deg})", showarrow=True, arrowhead=1, ax=20, ay=-40)
         fig_err.add_vline(x=min_test_err_deg, line=dict(color='red', dash='dot'))
+        # --- FIX: Was height=4.00 ---
         fig_err.update_layout(title="Train and Test Error vs. Model Complexity", xaxis_title="Polynomial Degree", yaxis_title=f"Error ({metric_choice})", height=400)
         st.plotly_chart(fig_err, use_container_width=True)
 
@@ -690,8 +747,6 @@ elif page == "Neural Network (Manual Fit)":
     def relu(z):
         return np.maximum(0, z)
 
-    # We need a smooth prediction line for the plot
-    # Calculate forward pass on the dense x_plot
     z_h1_plot = (w_i1 * x_plot) + b_h1
     a_h1_plot = relu(z_h1_plot)
     z_h2_plot = (w_i2 * x_plot) + b_h2
@@ -699,9 +754,8 @@ elif page == "Neural Network (Manual Fit)":
     z_h3_plot = (w_i3 * x_plot) + b_h3
     a_h3_plot = relu(z_h3_plot)
     z_o_plot = (w_h1_o * a_h1_plot) + (w_h2_o * a_h2_plot) + (w_h3_o * a_h3_plot) + b_o
-    y_pred_plot = z_o_plot # Linear output
+    y_pred_plot = z_o_plot 
     
-    # Calculate predictions just for the 10 data points for RMSE
     z_h1_data = (w_i1 * x_data) + b_h1
     a_h1_data = relu(z_h1_data)
     z_h2_data = (w_i2 * x_data) + b_h2
@@ -726,7 +780,6 @@ elif page == "Neural Network (Manual Fit)":
         })
         st.dataframe(df_nn, height=385)
 
-    # --- Plot ---
     with col2:
         st.subheader("Real vs. Forecasted Values")
         
@@ -769,7 +822,7 @@ elif page == "Time Series (Data Leaks)":
     
     df_lagged = create_lagged_features(df_ts.copy(), lags=n_lags)
     X_features = df_lagged.drop(['y', 'time'], axis=1)
-    y_labels = df_lagged['y']
+    y_labels = df_lagged['y'] # --- FIX: Was df_lagdged ---
     
     col_leak, col_correct = st.columns(2)
     with col_leak:
