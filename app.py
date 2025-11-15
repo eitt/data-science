@@ -221,11 +221,11 @@ if page == "Introduction":
     col1, col2 = st.columns([1, 3])
     
     with col1:
-        # NOTE: This assumes 'image_9095e1.png' is in the same directory as your app.py
+        # NOTE: This assumes 'image_9095e1.jpeg' is in the same directory as your app.py
         try:
-            st.image("image_9095e1.png")
+            st.image("image_9095e1.jpeg")
         except FileNotFoundError:
-            st.error("Profile image not found. Make sure 'image_9095e1.png' is in your repo.")
+            st.error("Profile image not found. Make sure 'image_9095e1.jpeg' is in your repo.")
 
     with col2:
         st.markdown(
