@@ -26,7 +26,7 @@ from sklearn.metrics import (
     precision_recall_curve,
     confusion_matrix,
 )
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_classification, make_circles # FOR SVM PAGE
 from sklearn.tree import DecisionTreeClassifier, plot_tree # For Decision Tree Page
 
 # --- Page Configuration ---
@@ -65,14 +65,14 @@ with st.sidebar:
     st.markdown("---")
     st.header("Navigation")
     
-    # --- NEW: Re-organized Conceptual Flow ---
     page_options = [
-        "Introduction", # NEW
+        "Introduction", 
         "Gradient Descent",
         "Manual Linear Fit", 
         "Train vs Test (Overfitting)", 
         "Logistic Regression",
         "Decision Trees",
+        "Support Vector Machines (SVM)", # NEW PAGE
         "Neural Network Training", 
         "Time Series (Data Leaks)", 
         "TS Analysis"
@@ -199,12 +199,10 @@ def get_nn_data(seed, noise):
 st.title("Understanding Supervised Learning")
 
 # ==============================================================================
-# --- NEW: Page 1: Introduction ---
+# --- Page 1: Introduction ---
 # ==============================================================================
 if page == "Introduction":
     st.header("Welcome to the Supervised Learning App")
-    st.markdown("By **Leonardo H. Talero-Sarmiento** "
-                "[View profile](https://apolo.unab.edu.co/en/persons/leonardo-talero)")
     
     st.markdown(
         """
@@ -220,16 +218,14 @@ if page == "Introduction":
     
     st.subheader("About the Author")
     
-    # Using columns to place image beside the bio
     col1, col2 = st.columns([1, 3])
     
     with col1:
         # NOTE: This assumes 'image_9095e1.png' is in the same directory as your app.py
-        # If you deployed to Streamlit Cloud, you must push this image to your GitHub repo.
         try:
-            st.image("image_9095e1.jpeg")
+            st.image("image_9095e1.png")
         except FileNotFoundError:
-            st.error("Profile image not found. Make sure 'image_9095e1.jpeg' is in your repo.")
+            st.error("Profile image not found. Make sure 'image_9095e1.png' is in your repo.")
 
     with col2:
         st.markdown(
@@ -727,7 +723,102 @@ elif page == "Decision Trees":
     )
 
 # ==============================================================================
-# --- Page 7: Neural Network Training (REPLACES Manual Fit) ---
+# --- NEW: Page 7: Support Vector Machines (SVM) ---
+# ==============================================================================
+elif page == "Support Vector Machines (SVM)":
+    st.header("Support Vector Machines (SVM)")
+    st.markdown(
+        """
+        A Support Vector Machine is another classification model. Like Logistic Regression,
+        it tries to find a boundary to separate classes. However, the SVM is more ambitious:
+        it tries to find the *best* boundary by maximizing the **margin** (or "street")
+        between the two classes.
+        
+        Its real power comes from the **Kernel Trick**, which allows it to solve
+        non-linear problems by adding a new dimension.
+        """
+    )
+
+    st.subheader("1. The Non-Linear Problem")
+    st.markdown("Below is a dataset of two concentric circles. It is impossible to
+    separate the inner (blue) circle from the outer (red) ring with a single straight line.")
+
+    # Generate the 2D data
+    X_2d, y_2d = make_circles(n_samples=200, noise=0.05, factor=0.5, random_state=st.session_state.seed)
+    df_2d = pd.DataFrame(X_2d, columns=['x', 'y'])
+    df_2d['class'] = y_2d.astype(str) # Use string for discrete colors
+
+    fig_2d = px.scatter(df_2d, x='x', y='y', color='class', title="1. The Original (Non-Separable) 2D Data")
+    st.plotly_chart(fig_2d, use_container_width=True)
+
+    st.subheader("2. The Kernel Trick: Adding a Third Dimension")
+    st.markdown(
+        r"""
+        We can solve this by creating a new dimension. Let's define a new feature, $z$,
+        based on the existing features:
+        
+        $$ z = x^2 + y^2 $$
+        
+        This new feature $z$ measures the squared distance from the center (0, 0).
+        When we plot the data in 3D, the classes become "lifted" to different heights.
+        """
+    )
+    
+    # Create the 3D data
+    df_2d['z'] = df_2d['x']**2 + df_2d['y']**2
+    
+    # Add controls for the separating plane
+    st.markdown("**Move the slider below** to position the separating plane (the 'plah') to perfectly divide the two classes.")
+    plane_z = st.slider("Separating Plane Height (z)", min_value=0.0, max_value=1.5, value=0.6, step=0.05)
+    
+    # Create 3D plot
+    fig_3d = px.scatter_3d(df_2d, x='x', y='y', z='z', color='class',
+                           title="2. The 'Lifted' 3D Data (Now Separable!)")
+    
+    # Add the separating plane
+    plane_x = np.linspace(-1.5, 1.5, 10)
+    plane_y = np.linspace(-1.5, 1.5, 10)
+    plane_xx, plane_yy = np.meshgrid(plane_x, plane_y)
+    plane_zz = np.full_like(plane_xx, plane_z)
+
+    fig_3d.add_trace(go.Surface(x=plane_xx, y=plane_yy, z=plane_zz, 
+                               name="Separating Plane", 
+                               opacity=0.5, 
+                                colorscale='greys', 
+                                showscale=False))
+    
+    st.plotly_chart(fig_3d, use_container_width=True)
+    
+    st.info(
+        """
+        **Key Takeaway:**
+        By projecting the 2D data into 3D space, the problem becomes simple. We can now
+        easily separate the two classes with a simple flat plane (a hyperplane).
+        
+        This is the "kernel trick." The SVM does this automatically, allowing it to
+        find complex, non-linear boundaries in the original 2D space.
+        """
+    )
+
+    st.subheader("Credits")
+    st.markdown(
+        """
+        The concepts and examples for this page were inspired by the work of
+        **Dilan Mogollon-Carreño**.
+        
+        * M.Sc. in Industrial Engineering
+        * Industrial Engineering, Universidad Industrial de Santander
+        * **E-mail:** dmogollon194@unab.edu.coo
+        * **Research Line:** Modeling, Simulation, and Optimization of Production Systems; Data Analytics.
+        * **Areas of Interest:** Mathematical Optimization; Supply Chain Network Design; Operations Research.
+
+        He is also a professor in Quantitative Methods in Industrial Engineering
+        at Universidad Autónoma de Bucaramanga.
+        """
+    )
+
+# ==============================================================================
+# --- Page 8: Neural Network Training (REPLACES Manual Fit) ---
 # ==============================================================================
 elif page == "Neural Network Training":
     st.header("Neural Network Training (Backpropagation)")
@@ -790,7 +881,6 @@ elif page == "Neural Network Training":
     # --- 4. Training ---
     st.subheader("4. Training Animation")
     
-    # DEBUG: Check if hidden_layer_sizes is empty
     if not hidden_layer_sizes:
         st.error("Error: 'hidden_layer_sizes' is empty. This should not happen. Please reload.")
     
@@ -801,19 +891,18 @@ elif page == "Neural Network Training":
         with col2:
             loss_placeholder = st.empty()
 
-        # Create the model
         model = MLPRegressor(
-            hidden_layer_sizes=hidden_layer_sizes, # Use dynamic sizes
+            hidden_layer_sizes=hidden_layer_sizes, 
             activation='relu',
             solver='sgd',
             learning_rate_init=learning_rate,
-            max_iter=1, # We control iterations manually
-            warm_start=True, # Allow retraining
+            max_iter=1, 
+            warm_start=True, 
             random_state=st.session_state.seed
         )
         
         loss_history = []
-        n_batches = 50 # Number of animation frames
+        n_batches = 50 
         epochs_per_batch = max(1, n_epochs // n_batches)
         
         with st.spinner("Training model..."):
@@ -823,15 +912,13 @@ elif page == "Neural Network Training":
                 try:
                     model.fit(x_data, y_data)
                 except ConvergenceWarning:
-                    pass # Ignore warnings during partial fits
+                    pass 
                 
                 loss = model.loss_
                 loss_history.append(loss)
                 
-                # Update plots
                 y_pred_plot = model.predict(x_plot)
                 
-                # Plot 1: Model Fit
                 fig_fit = go.Figure()
                 fig_fit.add_trace(go.Scatter(x=x_data.ravel(), y=y_data, mode='markers', name='Data Points (Real)', marker=dict(size=10)))
                 fig_fit.add_trace(go.Scatter(x=x_plot.ravel(), y=np.sin(2 * np.pi * x_plot.ravel()), mode='lines', name='True Sine Wave', line=dict(dash='dash', color='green')))
@@ -839,18 +926,15 @@ elif page == "Neural Network Training":
                 fig_fit.update_layout(title=f"Model Fit (Epoch {(i+1) * epochs_per_batch})", xaxis_title="x", yaxis_title="y", yaxis_range=[-2.5, 2.5], margin=dict(l=0, r=0, b=0, t=40))
                 plot_placeholder.plotly_chart(fig_fit, use_container_width=True)
                 
-                # Plot 2: Loss Curve
                 fig_loss = go.Figure()
                 fig_loss.add_trace(go.Scatter(x=np.arange(len(loss_history)), y=loss_history, mode='lines', name='Loss'))
                 fig_loss.update_layout(title="Training Loss (Cost)", xaxis_title="Training Batch", yaxis_title="Loss", yaxis_type="log", margin=dict(l=0, r=0, b=0, t=40))
                 loss_placeholder.plotly_chart(fig_loss, use_container_width=True)
                 
-                # Re-fit for next batch
                 model.max_iter += epochs_per_batch
                 
             st.success("Training complete!")
             
-            # --- 5. Final Performance ---
             st.subheader("5. Model Performance")
             st.latex(r"\text{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2}")
             
@@ -871,7 +955,7 @@ elif page == "Neural Network Training":
 
 
 # ==============================================================================
-# --- Page 8: Time Series (Data Leaks) ---
+# --- Page 9: Time Series (Data Leaks) ---
 # ==============================================================================
 elif page == "Time Series (Data Leaks)":
     st.header("Time Series & Data Leaks")
@@ -901,7 +985,7 @@ elif page == "Time Series (Data Leaks)":
     
     df_lagged = create_lagged_features(df_ts.copy(), lags=n_lags)
     X_features = df_lagged.drop(['y', 'time'], axis=1)
-    y_labels = df_lagged['y'] # --- FIX: Was df_lagdged ---
+    y_labels = df_lagged['y'] 
     
     col_leak, col_correct = st.columns(2)
     with col_leak:
