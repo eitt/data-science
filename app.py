@@ -26,7 +26,8 @@ from sklearn.metrics import (
     precision_recall_curve,
     confusion_matrix,
 )
-from sklearn.datasets import make_classification, make_circles # FOR SVM PAGE
+from sklearn.datasets import make_classification, make_circles, make_blobs # FOR SVM PAGE
+from sklearn.svm import SVC # FOR SVM PAGE
 from sklearn.tree import DecisionTreeClassifier, plot_tree # For Decision Tree Page
 
 # --- Page Configuration ---
@@ -72,7 +73,7 @@ with st.sidebar:
         "Train vs Test (Overfitting)", 
         "Logistic Regression",
         "Decision Trees",
-        "Support Vector Machines (SVM)", # NEW PAGE
+        "Support Vector Machines (SVM)", # UPDATED PAGE
         "Neural Network Training", 
         "Time Series (Data Leaks)", 
         "TS Analysis"
@@ -194,6 +195,12 @@ def get_nn_data(seed, noise):
     y = y_true + np.random.randn(10) * noise
     return x, y, y_true
 
+# Helper function for Tab 7 (SVM)
+@st.cache_data
+def get_svm_blobs(seed):
+    X, y = make_blobs(n_samples=100, centers=2, random_state=seed, cluster_std=0.8)
+    return X, y
+
 
 # --- Main App ---
 st.title("Understanding Supervised Learning")
@@ -221,7 +228,7 @@ if page == "Introduction":
     col1, col2 = st.columns([1, 3])
     
     with col1:
-        # NOTE: This assumes 'image_9095e1.jpeg' is in the same directory as your app.py
+        # --- FIX: Changed .png to .jpeg ---
         try:
             st.image("image_9095e1.jpeg")
         except FileNotFoundError:
@@ -733,14 +740,90 @@ elif page == "Support Vector Machines (SVM)":
         it tries to find a boundary to separate classes. However, the SVM is more ambitious:
         it tries to find the *best* boundary by maximizing the **margin** (or "street")
         between the two classes.
-        
-        Its real power comes from the **Kernel Trick**, which allows it to solve
-        non-linear problems by adding a new dimension.
         """
     )
 
-    st.subheader("1. The Non-Linear Problem")
-    st.markdown("Below is a dataset of two concentric circles. It is impossible to    separate the inner (blue) circle from the outer (red) ring with a single straight line.")
+    # --- NEW SECTION ---
+    st.subheader("1. Linear SVM & The Margin")
+    st.markdown(
+        """
+        For linearly separable data, the SVM finds the optimal separating line (hyperplane)
+        by maximizing the distance to the closest data points from *either* class.
+        These closest points are called the **Support Vectors**.
+        
+        The **`C` parameter** controls the trade-off:
+        * **Low `C`:** A "soft margin." Allows some misclassifications to get a wider, more stable margin.
+        * **High `C`:** A "hard margin." Tries to classify *every* point correctly, resulting in a narrow margin that might overfit.
+        """
+    )
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        C_param = st.select_slider(
+            "SVM Regularization (C)",
+            options=[0.1, 1, 10, 100],
+            value=1,
+            help="Low C = wide margin (more tolerance). High C = narrow margin (less tolerance)."
+        )
+        X_blobs, y_blobs = get_svm_blobs(st.session_state.seed)
+        
+        # Fit the model
+        clf = SVC(kernel='linear', C=C_param)
+        clf.fit(X_blobs, y_blobs)
+
+        # Get data for plotting
+        df_blobs = pd.DataFrame(X_blobs, columns=['x', 'y'])
+        df_blobs['class'] = y_blobs.astype(str)
+        
+        # Get support vectors
+        sv_indices = clf.support_
+        df_sv = df_blobs.iloc[sv_indices]
+        
+        st.metric("Number of Support Vectors", len(sv_indices))
+        st.markdown("These are the critical points that *define* the margin.")
+
+    with col2:
+        # Create the plot
+        fig_svm = px.scatter(df_blobs, x='x', y='y', color='class', title=f"Linear SVM with C={C_param}")
+        
+        # Add Support Vectors
+        fig_svm.add_trace(go.Scatter(
+            x=df_sv['x'], y=df_sv['y'],
+            mode='markers',
+            name='Support Vectors',
+            marker=dict(size=12, color='rgba(0,0,0,0)', line=dict(color='black', width=2), symbol='circle-open')
+        ))
+
+        # Add Decision Boundary & Margins
+        w = clf.coef_[0]
+        b = clf.intercept_[0]
+        x_plot = np.linspace(df_blobs['x'].min(), df_blobs['x'].max(), 10)
+        
+        # y = (-w[0]*x - b) / w[1]
+        y_plot = (-w[0] * x_plot - b) / w[1]
+        # y = (-w[0]*x - b + 1) / w[1]
+        y_margin_plus = (-w[0] * x_plot - b + 1) / w[1]
+        # y = (-w[0]*x - b - 1) / w[1]
+        y_margin_minus = (-w[0] * x_plot - b - 1) / w[1]
+        
+        fig_svm.add_trace(go.Scatter(x=x_plot, y=y_plot, mode='lines', name='Decision Boundary', line=dict(color='black', width=2)))
+        fig_svm.add_trace(go.Scatter(x=x_plot, y=y_margin_plus, mode='lines', name='Margin', line=dict(color='gray', dash='dash')))
+        fig_svm.add_trace(go.Scatter(x=x_plot, y=y_margin_minus, mode='lines', name='Margin', line=dict(color='gray', dash='dash'), showlegend=False))
+        
+        fig_svm.update_yaxes(scaleanchor="x", scaleratio=1)
+        st.plotly_chart(fig_svm, use_container_width=True)
+
+    # --- EXISTING SECTION 2 ---
+    st.subheader("2. The Non-Linear Problem (The Kernel Trick)")
+    st.markdown(
+        """
+        But what if the data isn't linearly separable? This is where the SVM's
+        **Kernel Trick** comes in.
+        
+        Below is a dataset of two concentric circles. It is impossible to
+        separate the inner (blue) circle from the outer (red) ring with a single straight line.
+        """
+    )
 
     # Generate the 2D data
     X_2d, y_2d = make_circles(n_samples=200, noise=0.05, factor=0.5, random_state=st.session_state.seed)
@@ -750,7 +833,8 @@ elif page == "Support Vector Machines (SVM)":
     fig_2d = px.scatter(df_2d, x='x', y='y', color='class', title="1. The Original (Non-Separable) 2D Data")
     st.plotly_chart(fig_2d, use_container_width=True)
 
-    st.subheader("2. The Kernel Trick: Adding a Third Dimension")
+    # --- EXISTING SECTION 3 ---
+    st.subheader("3. The Kernel Trick: Adding a Third Dimension")
     st.markdown(
         r"""
         We can solve this by creating a new dimension. Let's define a new feature, $z$,
@@ -760,14 +844,13 @@ elif page == "Support Vector Machines (SVM)":
         
         This new feature $z$ measures the squared distance from the center (0, 0).
         When we plot the data in 3D, the classes become "lifted" to different heights.
+        
+        **Move the slider below** to position the separating plane to perfectly divide the two classes.
         """
     )
     
     # Create the 3D data
     df_2d['z'] = df_2d['x']**2 + df_2d['y']**2
-    
-    # Add controls for the separating plane
-    st.markdown("**Move the slider below** to position the separating plane (the 'plah') to perfectly divide the two classes.")
     plane_z = st.slider("Separating Plane Height (z)", min_value=0.0, max_value=1.5, value=0.6, step=0.05)
     
     # Create 3D plot
@@ -794,11 +877,12 @@ elif page == "Support Vector Machines (SVM)":
         By projecting the 2D data into 3D space, the problem becomes simple. We can now
         easily separate the two classes with a simple flat plane (a hyperplane).
         
-        This is the "kernel trick." The SVM does this automatically, allowing it to
-        find complex, non-linear boundaries in the original 2D space.
+        An SVM with a 'Radial Basis Function' (RBF) kernel does this automatically, 
+        allowing it to find complex, non-linear boundaries.
         """
     )
 
+    # --- UPDATED CREDITS ---
     st.subheader("Credits")
     st.markdown(
         """
@@ -1026,7 +1110,7 @@ elif page == "Time Series (Data Leaks)":
     st.plotly_chart(fig_ts, use_container_width=True)
 
 # ==============================================================================
-# --- Page 9: Time Series Analysis (Fast Version) ---
+# --- Page 10: Time Series Analysis (Fast Version) ---
 # ==============================================================================
 elif page == "TS Analysis":
     st.header("Time Series Analysis (Rolling Windows)")
