@@ -740,8 +740,7 @@ elif page == "Support Vector Machines (SVM)":
     )
 
     st.subheader("1. The Non-Linear Problem")
-    st.markdown("Below is a dataset of two concentric circles. It is impossible to
-    separate the inner (blue) circle from the outer (red) ring with a single straight line.")
+    st.markdown("Below is a dataset of two concentric circles. It is impossible to    separate the inner (blue) circle from the outer (red) ring with a single straight line.")
 
     # Generate the 2D data
     X_2d, y_2d = make_circles(n_samples=200, noise=0.05, factor=0.5, random_state=st.session_state.seed)
