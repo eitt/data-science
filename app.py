@@ -5,6 +5,14 @@ import plotly.graph_objects as go
 import plotly.express as px
 import time  # To time model fits
 import matplotlib.pyplot as plt # For decision tree plotting
+import yfinance as yf
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.stattools import adfuller
+try:
+    import pmdarima as pm
+    HAS_PMDARIMA = True
+except Exception:
+    HAS_PMDARIMA = False
 
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -76,7 +84,8 @@ with st.sidebar:
         "Support Vector Machines (SVM)", # UPDATED PAGE
         "Neural Network Training", 
         "Time Series (Data Leaks)", 
-        "TS Analysis"
+        "TS Analysis",
+        "Finance (Stochastic Processes)"
     ]
     page = st.radio("Select a topic", page_options, label_visibility="collapsed")
     st.markdown("---")
@@ -1191,3 +1200,117 @@ elif page == "TS Analysis":
         * **"Stationary (No Trend)"**: Notice how the "Rolling Average" stays flat (around 0) and the "Rolling Std. Dev." is also flat? This is the definition of a **stationary** series.
         """
     )
+
+
+# ==============================================================================
+# --- Page: Finance (Stochastic Processes) ---
+# ==============================================================================
+elif page == "Finance (Stochastic Processes)":
+    st.header("Stochastic Processes — Finance (Yahoo Finance)")
+    st.markdown("""
+    Download price series from Yahoo Finance, inspect stochastic components (trend, seasonality, noise),
+    run stationarity tests, and try simple forecasting approaches. Useful for classroom demonstrations.
+    """)
+
+    # Default sample tickers (user may select up to 10)
+    default_tickers = [
+        "^COLCAP", "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA", "NVDA", "META", "JPM", "XOM"
+    ]
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        tickers = st.multiselect("Choose tickers (1–10)", options=default_tickers, default=default_tickers[:6])
+        if len(tickers) == 0:
+            st.warning("Select at least one ticker.")
+    with col2:
+        start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"))
+        end_date = st.date_input("End date", value=pd.to_datetime("today"))
+
+    if tickers and len(tickers) > 0:
+        if len(tickers) > 10:
+            st.error("Please select at most 10 tickers.")
+        else:
+            with st.spinner("Downloading data from Yahoo Finance..."):
+                price_frames = []
+                for t in tickers:
+                    try:
+                        df_t = yf.download(t, start=start_date, end=end_date, progress=False)
+                        if df_t.empty:
+                            st.warning(f"No data for {t}.")
+                            continue
+                        df_t = df_t[['Adj Close']].rename(columns={'Adj Close': t})
+                        price_frames.append(df_t)
+                    except Exception as e:
+                        st.error(f"Error downloading {t}: {e}")
+                if len(price_frames) == 0:
+                    st.stop()
+                df_prices = pd.concat(price_frames, axis=1)
+                st.success("Download complete.")
+
+            st.subheader("Interactive Price Chart")
+            fig_prices = px.line(df_prices, labels={'value': 'Price', 'index': 'Date'})
+            st.plotly_chart(fig_prices, use_container_width=True)
+
+            # Choose one ticker for detailed analysis
+            analysis_ticker = st.selectbox("Ticker to analyze", options=df_prices.columns.tolist())
+            series = df_prices[analysis_ticker].dropna()
+
+            st.subheader("Decomposition & Stationarity")
+            freq = st.selectbox("Decompose frequency (period)", options=[7, 30, 90, 252], index=1,
+                                help="Approximate period: 30 ~ monthly, 252 ~ trading days per year")
+            try:
+                decomposition = seasonal_decompose(series, model='additive', period=freq, extrapolate_trend='freq')
+                fig_dec = go.Figure()
+                fig_dec.add_trace(go.Scatter(x=series.index, y=series, name='Original'))
+                fig_dec.add_trace(go.Scatter(x=series.index, y=decomposition.trend, name='Trend'))
+                fig_dec.add_trace(go.Scatter(x=series.index, y=decomposition.seasonal, name='Seasonal'))
+                fig_dec.update_layout(title=f"Decomposition ({analysis_ticker})")
+                st.plotly_chart(fig_dec, use_container_width=True)
+            except Exception as e:
+                st.warning(f"Decomposition failed: {e}")
+
+            # ADF stationarity test
+            try:
+                adf_res = adfuller(series.dropna())
+                st.metric("ADF Statistic", f"{adf_res[0]:.4f}")
+                st.metric("ADF p-value", f"{adf_res[1]:.4f}")
+                st.write("Critical Values:")
+                st.write(adf_res[4])
+            except Exception as e:
+                st.warning(f"ADF test failed: {e}")
+
+            st.subheader("Simple Filters & Forecasts")
+            window = st.slider("Moving average window (days)", 2, 200, 21)
+            df_plot = pd.DataFrame({
+                'price': series,
+                'MA': series.rolling(window=window).mean(),
+                'EWMA': series.ewm(span=window).mean()
+            })
+            fig_filters = go.Figure()
+            fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['price'], name='Price', line=dict(color='blue')))
+            fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['MA'], name='Moving Avg', line=dict(color='orange')))
+            fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['EWMA'], name='EWMA', line=dict(color='green')))
+            fig_filters.update_layout(title=f"Filters ({analysis_ticker})")
+            st.plotly_chart(fig_filters, use_container_width=True)
+
+            st.subheader("ARIMA Forecast (optional)")
+            periods = st.number_input("Forecast horizon (periods)", min_value=1, max_value=365, value=30)
+            if HAS_PMDARIMA:
+                if st.button("Run auto_arima forecast"):
+                    with st.spinner("Fitting ARIMA (this may take a moment)..."):
+                        try:
+                            arima_model = pm.auto_arima(series.dropna(), seasonal=True, m=12, error_action='ignore', suppress_warnings=True)
+                            fc, confint = arima_model.predict(n_periods=periods, return_conf_int=True)
+                            idx = pd.date_range(start=series.index[-1] + pd.Timedelta(1, unit='D'), periods=periods, freq='D')
+                            df_fc = pd.DataFrame({'forecast': fc}, index=idx)
+                            fig_fc = go.Figure()
+                            fig_fc.add_trace(go.Scatter(x=series.index, y=series, name='History'))
+                            fig_fc.add_trace(go.Scatter(x=df_fc.index, y=df_fc['forecast'], name='ARIMA Forecast', line=dict(color='red')))
+                            st.plotly_chart(fig_fc, use_container_width=True)
+                        except Exception as e:
+                            st.error(f"ARIMA failed: {e}")
+            else:
+                st.info("Install 'pmdarima' to enable automatic ARIMA forecasting.")
+
+            csv = df_prices.to_csv().encode('utf-8')
+            st.download_button(label="Download prices CSV", data=csv, file_name="prices.csv", mime='text/csv')

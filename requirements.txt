@@ -5,3 +5,5 @@ scikit-learn
 streamlit
 statsmodels
 matplotlib
+yfinance
+pmdarima
