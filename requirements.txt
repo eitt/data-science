@@ -7,4 +7,5 @@ statsmodels
 matplotlib
 yfinance
 pmdarima
-altair
+altair>=4.2.0
+vega_datasets
