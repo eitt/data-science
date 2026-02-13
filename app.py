@@ -327,7 +327,7 @@ elif page == "Gradient Descent":
             line=dict(color='red', width=4), marker=dict(size=4)
         ))
         fig_3d.update_layout(title="3D View: The 'Sandpit' (Cost Surface)", height=400, margin=dict(l=0, r=0, b=0, t=40))
-        st.plotly_chart(fig_3d, use_container_width=True)
+        st.plotly_chart(fig_3d, width='stretch')
 
         fig_2d = go.Figure(data=[go.Contour(z=Z_mesh, x=x_grid, y=y_grid, colorscale='viridis', ncontours=20)])
         fig_2d.add_trace(go.Scatter(
@@ -336,7 +336,7 @@ elif page == "Gradient Descent":
             line=dict(color='red', width=3), marker=dict(size=6)
         ))
         fig_2d.update_layout(title="2D View: Path to the Minimum", height=400, margin=dict(l=0, r=0, b=0, t=40))
-        st.plotly_chart(fig_2d, use_container_width=True)
+        st.plotly_chart(fig_2d, width='stretch')
 
 
 # ==============================================================================
@@ -414,7 +414,7 @@ elif page == "Manual Linear Fit":
                 fig.add_shape(type="line", x0=x[i], y0=y_pred[i], x1=x[i], y1=y[i], line=dict(color="red", width=1, dash="dot"))
         
         fig.update_layout(title="Manual Linear Regression Fit", xaxis_title="x", yaxis_title="y", height=400, margin=dict(l=0, r=0, b=0, t=40))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         st.subheader("Parameter Space (Cost Surface)")
         b0_vals, b1_vals, sse_grid = calculate_sse_surface(x, y)
@@ -449,7 +449,7 @@ elif page == "Manual Linear Fit":
             height=400,
             margin=dict(l=0, r=0, b=0, t=40)
         )
-        st.plotly_chart(fig_cost, use_container_width=True)
+        st.plotly_chart(fig_cost, width='stretch')
 
 # ==============================================================================
 # --- Page 4: Training vs Testing: Overfitting ---
@@ -522,7 +522,7 @@ elif page == "Train vs Test (Overfitting)":
         fig_fit.add_trace(go.Scatter(x=x, y=y_true, mode='lines', name='True Function (sin(2πx))', line=dict(color='green', dash='dash')))
         fig_fit.add_trace(go.Scatter(x=x_range.flatten(), y=y_pred_range, mode='lines', name=f'Model (Degree {st.session_state.poly_degree})', line=dict(color='orange', width=3)))
         fig_fit.update_layout(title="Model Fit vs. Data", xaxis_title="x", yaxis_title="y", yaxis_range=[-2.5, 2.5], height=400)
-        st.plotly_chart(fig_fit, use_container_width=True)
+        st.plotly_chart(fig_fit, width='stretch')
 
         st.subheader(f"Error ({metric_choice}) vs. Polynomial Degree")
         fig_err = go.Figure()
@@ -533,7 +533,7 @@ elif page == "Train vs Test (Overfitting)":
         fig_err.add_annotation(x=min_test_err_deg, y=test_errors[min_test_err_idx], text=f"Min Test Error (Degree {min_test_err_deg})", showarrow=True, arrowhead=1, ax=20, ay=-40)
         fig_err.add_vline(x=min_test_err_deg, line=dict(color='red', dash='dot'))
         fig_err.update_layout(title="Train and Test Error vs. Model Complexity", xaxis_title="Polynomial Degree", yaxis_title=f"Error ({metric_choice})", height=400)
-        st.plotly_chart(fig_err, use_container_width=True)
+        st.plotly_chart(fig_err, width='stretch')
 
 # ==============================================================================
 # --- Page 5: Logistic Regression ---
@@ -585,7 +585,7 @@ elif page == "Logistic Regression":
         fig_bound.add_trace(go.Contour(x=np.arange(x_min, x_max, 0.02), y=np.arange(y_min, y_max, 0.02), z=Z, name="Prob(y=1)", showscale=False, contours=dict(start=0, end=1, size=0.1), opacity=0.5, line_width=0))
         fig_bound.add_trace(go.Contour(x=np.arange(x_min, x_max, 0.02), y=np.arange(y_min, y_max, 0.02), z=Z, showscale=False, contours_coloring='lines', contours=dict(start=threshold, end=threshold, size=0), line=dict(color='black', width=3, dash='dash'), name=f"Threshold ({threshold})"))
         fig_bound.update_layout(title="Decision Boundary", height=500)
-        st.plotly_chart(fig_bound, use_container_width=True)
+        st.plotly_chart(fig_bound, width='stretch')
 
     st.subheader("Model Performance Curves")
     plot_col1, plot_col2, plot_col3 = st.columns(3)
@@ -594,31 +594,29 @@ elif page == "Logistic Regression":
         fig_roc = px.area(x=fpr, y=tpr, title=f"ROC Curve (AUC={roc_auc_score(y_test, y_proba):.3f})")
         fig_roc.add_shape(type='line', x0=0, y0=0, x1=1, y1=1, line=dict(color='Gray', dash='dash'))
         fig_roc.update_layout(xaxis_title="False Positive Rate", yaxis_title="True Positive Rate", height=400)
-        st.plotly_chart(fig_roc, use_container_width=True)
+        st.plotly_chart(fig_roc, width='stretch')
     with plot_col2:
         precision, recall, _ = precision_recall_curve(y_test, y_proba)
         fig_pr = px.line(x=recall, y=precision, title="Precision-Recall Curve")
         fig_pr.update_layout(xaxis_title="Recall", yaxis_title="Precision", height=400)
-        st.plotly_chart(fig_pr, use_container_width=True)
+        st.plotly_chart(fig_pr, width='stretch')
     with plot_col3:
         cm = confusion_matrix(y_test, y_pred)
         fig_cm = px.imshow(cm, text_auto=True, labels=dict(x="Predicted", y="Actual"), x=['Pred 0', 'Pred 1'], y=['True 0', 'True 1'], color_continuous_scale='Blues')
         fig_cm.update_layout(title="Confusion Matrix (at threshold)", height=400)
-        st.plotly_chart(fig_cm, use_container_width=True)
+        st.plotly_chart(fig_cm, width='stretch')
     st.markdown("**How to Read the Confusion Matrix:** Top-Left (True Negative), Bottom-Right (True Positive), Top-Right (False Positive), Bottom-Left (False Negative).")
 
     st.subheader("Context: Manufacturing Failure Example")
     with st.expander("Click to see a conceptual explanation and manufacturing example"):
-        st.markdown(
-            """
+        st.markdown(r"""
             #### Why Logistic Regression?
             Our target variable (e.g., `failed_this_year`) is **binary** (0 or 1). A normal Linear Regression model $y = \beta_0 + \beta_1 x$ is unbounded and can predict values like -0.5 or 1.5, which are meaningless as probabilities.
             We need a function that maps any real number to the range [0, 1]. We use the **logistic (or sigmoid) function**, which has an "S" shape.
             $$ \text{Probability} = \sigma(z) = \frac{1}{1 + e^{-z}} $$
             Where $z$ is our familiar linear equation: $z = \beta_0 + \beta_1 x_1 + ...$
             This $z$ value is called the **log-odds**. The coefficients ($\beta_1$, etc.) are no longer interpreted directly. Instead, we interpret their exponent, $e^\beta$, which is the **Odds Ratio**.
-            """
-        )
+            """)
         st.subheader("Example: Predicting Machine Failure")
         st.markdown("Let's predict `failed_this_year` (0 or 1) based on `temperature`, `pressure`, and `last_year_failed`.")
         
@@ -629,7 +627,7 @@ elif page == "Logistic Regression":
         mfg_model = LogisticRegression()
         mfg_model.fit(X_mfg, y_mfg)
         
-        st.dataframe(df_mfg, use_container_width=True)
+        st.dataframe(df_mfg, width='stretch')
         
         st.subheader("Model Interpretation: Coefficients & Odds Ratios")
         features = X_mfg.columns
@@ -641,7 +639,7 @@ elif page == "Logistic Regression":
             'Coefficient (Log-Odds)': coeffs,
             'Odds Ratio (e^coeff)': odds_ratios
         })
-        st.dataframe(interp_df.round(3), use_container_width=True)
+        st.dataframe(interp_df.round(3), width='stretch')
         st.markdown(
             """
             **How to Interpret:**
@@ -669,25 +667,21 @@ elif page == "Decision Trees":
     st.subheader("1. Key Concepts: Gini vs. Entropy")
     col1, col2 = st.columns(2)
     with col1:
-        st.info(
-            """
+        st.info(r"""
             #### Gini Impurity
             * **Formula:** $G = 1 - \sum_{i=1}^{C} (p_i)^2$
             * **What it is:** The probability of *incorrectly* classifying a randomly chosen
                 item if it were randomly labeled according to the class distribution.
             * **Range:** 0 (perfectly pure) to 0.5 (perfectly mixed).
-            """
-        )
+            """)
     with col2:
-        st.info(
-            """
+        st.info(r"""
             #### Entropy
             * **Formula:** $H = - \sum_{i=1}^{C} p_i \log_2(p_i)$
             * **What it is:** A measure of "disorder." A node with
                 high entropy is very mixed.
             * **Range:** 0 (perfectly pure) to 1 (perfectly mixed).
-            """
-        )
+            """)
 
     st.subheader("2. Interactive Model (Manufacturing Example)")
     st.markdown("Here is the *same* manufacturing dataset. Change the controls to see how the tree's structure changes.")
@@ -820,7 +814,7 @@ elif page == "Support Vector Machines (SVM)":
         fig_svm.add_trace(go.Scatter(x=x_plot, y=y_margin_minus, mode='lines', name='Margin', line=dict(color='gray', dash='dash'), showlegend=False))
         
         fig_svm.update_yaxes(scaleanchor="x", scaleratio=1)
-        st.plotly_chart(fig_svm, use_container_width=True)
+        st.plotly_chart(fig_svm, width='stretch')
 
     # --- EXISTING SECTION 2 ---
     st.subheader("2. The Non-Linear Problem (The Kernel Trick)")
@@ -840,7 +834,7 @@ elif page == "Support Vector Machines (SVM)":
     df_2d['class'] = y_2d.astype(str) # Use string for discrete colors
 
     fig_2d = px.scatter(df_2d, x='x', y='y', color='class', title="1. The Original (Non-Separable) 2D Data")
-    st.plotly_chart(fig_2d, use_container_width=True)
+    st.plotly_chart(fig_2d, width='stretch')
 
     # --- EXISTING SECTION 3 ---
     st.subheader("3. The Kernel Trick: Adding a Third Dimension")
@@ -878,7 +872,7 @@ elif page == "Support Vector Machines (SVM)":
                                 colorscale='greys', 
                                 showscale=False))
     
-    st.plotly_chart(fig_3d, use_container_width=True)
+    st.plotly_chart(fig_3d, width='stretch')
     
     st.info(
         """
@@ -1016,12 +1010,12 @@ elif page == "Neural Network Training":
                 fig_fit.add_trace(go.Scatter(x=x_plot.ravel(), y=np.sin(2 * np.pi * x_plot.ravel()), mode='lines', name='True Sine Wave', line=dict(dash='dash', color='green')))
                 fig_fit.add_trace(go.Scatter(x=x_plot.ravel(), y=y_pred_plot, mode='lines', name='ANN Forecast', line=dict(color='orange', width=3)))
                 fig_fit.update_layout(title=f"Model Fit (Epoch {(i+1) * epochs_per_batch})", xaxis_title="x", yaxis_title="y", yaxis_range=[-2.5, 2.5], margin=dict(l=0, r=0, b=0, t=40))
-                plot_placeholder.plotly_chart(fig_fit, use_container_width=True)
+                plot_placeholder.plotly_chart(fig_fit, width='stretch')
                 
                 fig_loss = go.Figure()
                 fig_loss.add_trace(go.Scatter(x=np.arange(len(loss_history)), y=loss_history, mode='lines', name='Loss'))
                 fig_loss.update_layout(title="Training Loss (Cost)", xaxis_title="Training Batch", yaxis_title="Loss", yaxis_type="log", margin=dict(l=0, r=0, b=0, t=40))
-                loss_placeholder.plotly_chart(fig_loss, use_container_width=True)
+                loss_placeholder.plotly_chart(fig_loss, width='stretch')
                 
                 model.max_iter += epochs_per_batch
                 
@@ -1040,7 +1034,7 @@ elif page == "Neural Network Training":
                 'y_real': y_data.round(2),
                 'y_forecasted': y_pred_data.round(2)
             })
-            st.dataframe(df_nn, use_container_width=True)
+            st.dataframe(df_nn, width='stretch')
     
     else:
         st.info("Click 'Train Model' to start the backpropagation process.")
@@ -1057,21 +1051,17 @@ elif page == "Time Series (Data Leaks)":
     
     st.subheader("1. Illustrative Time Series Data")
     st.markdown("Our synthetic data, with a trend, seasonality, and noise.")
-    st.plotly_chart(px.line(df_ts, y='y', title='Synthetic Time Series Data'), use_container_width=True)
+    st.plotly_chart(px.line(df_ts, y='y', title='Synthetic Time Series Data'), width='stretch')
     
     st.subheader("2. Mathematical Foundations")
-    st.markdown("A time series $Y_t$ is often a combination of Trend ($T_t$), Seasonality ($S_t$), and Noise ($\epsilon_t$). Models can be **Additive** ($Y_t = T_t + S_t + \epsilon_t$) or **Multiplicative** ($Y_t = T_t \times S_t \times \epsilon_t$). The key concept is **Autocorrelation**: the idea that $y_{t-1}$ is useful for predicting $y_t$.")
+    st.markdown(r"A time series $Y_t$ is often a combination of Trend ($T_t$), Seasonality ($S_t$), and Noise ($\epsilon_t$). Models can be **Additive** ($Y_t = T_t + S_t + \epsilon_t$) or **Multiplicative** ($Y_t = T_t \times S_t \times \epsilon_t$). The key concept is **Autocorrelation**: the idea that $y_{t-1}$ is useful for predicting $y_t$.")
     
     st.subheader("3. Comparison of Time Series Models")
-    st.markdown("""
-| Model | Core Idea | Pros | Cons |
-| :--- | :--- | :--- | :--- |
-| **ARIMA** | Statistical model using past values (AR), errors (MA), and differencing (I). | Interpretable, statistically robust. | Struggles with non-linear patterns. |
-| **Neural Networks (RNN/LSTM)** | Sequential models with "memory" cells. | State-of-the-art for complex, non-linear data. | Black box, data-hungry, slow to train. |
-| **Decision Trees (RF/GBM)** | Uses lagged values as features to make splits. | Good at non-linear interactions. | **CANNOT EXTRAPOLATE** (will never predict a value outside its training range). |
-    """)
+    st.markdown("We model a heartbeat-like signal as a baseline plus a train of Gaussian pulses (one pulse per beat):")
 
-    st.subheader("4. Performance Comparison: Data Leak vs. Correct Method")
+    st.latex(r"y(t) = \beta_0 + A \sum_{i=1}^{N} \exp\left(-\frac{(t - t_i)^2}{2\sigma^2}\right) + \varepsilon_t")
+
+    st.markdown("Tune the parameters below to see how the signal changes. Coefficients shown in color are the expected model parameters.")
     n_lags = st.slider("Number of Lagged Features", 1, 10, 3, key="tab4_lags")
     split_pct = st.slider("Train/Test Split (Time-Based)", 0.6, 0.9, 0.7, 0.05, key="tab4_split")
     
@@ -1116,7 +1106,7 @@ elif page == "Time Series (Data Leaks)":
     fig_ts.add_annotation(x=split_date, y=1.0, yref="paper", text="Train/Test Split", showarrow=False, xanchor="left", yanchor="top", xshift=5)
     
     fig_ts.update_layout(title="Time Series Forecast (Correct Method)", xaxis_title="Date", yaxis_title="Value")
-    st.plotly_chart(fig_ts, use_container_width=True)
+    st.plotly_chart(fig_ts, width='stretch')
 
 # ==============================================================================
 # --- Page 10: Time Series Analysis (Fast Version) ---
@@ -1153,7 +1143,7 @@ elif page == "TS Analysis":
     
     st.subheader("2. Raw Data")
     fig_data = px.line(data, title=f"Data: {dataset}", labels={"value": "Value", "index": "Date"})
-    st.plotly_chart(fig_data, use_container_width=True)
+    st.plotly_chart(fig_data, width='stretch')
 
     st.subheader("3. Rolling Window Analysis")
     
@@ -1190,7 +1180,7 @@ elif page == "TS Analysis":
         legend=dict(x=0, y=1, traceorder="normal")
     )
     
-    st.plotly_chart(fig_rolling, use_container_width=True)
+    st.plotly_chart(fig_rolling, width='stretch')
     
     st.info(
         """
@@ -1212,105 +1202,275 @@ elif page == "Finance (Stochastic Processes)":
     run stationarity tests, and try simple forecasting approaches. Useful for classroom demonstrations.
     """)
 
-    # Default sample tickers (user may select up to 10)
-    default_tickers = [
-        "^COLCAP", "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA", "NVDA", "META", "JPM", "XOM"
-    ]
+    tabs = st.tabs(["Heartbeat (Stochastic Processes)", "Finance (Yahoo)"])
 
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        tickers = st.multiselect("Choose tickers (1–10)", options=default_tickers, default=default_tickers[:6])
-        if len(tickers) == 0:
-            st.warning("Select at least one ticker.")
-    with col2:
-        start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"))
-        end_date = st.date_input("End date", value=pd.to_datetime("today"))
+    # ------------------ Heartbeat tab: simple stochastic process illustrations
+    with tabs[0]:
+        st.subheader("Heartbeat — stochastic processes (Gaussian pulse model)")
+        st.markdown(
+            """
+        We model a heartbeat-like signal as a baseline plus a train of Gaussian pulses (one pulse per beat):
 
-    if tickers and len(tickers) > 0:
-        if len(tickers) > 10:
-            st.error("Please select at most 10 tickers.")
-        else:
-            with st.spinner("Downloading data from Yahoo Finance..."):
-                price_frames = []
-                for t in tickers:
-                    try:
-                        df_t = yf.download(t, start=start_date, end=end_date, progress=False)
-                        if df_t.empty:
-                            st.warning(f"No data for {t}.")
-                            continue
-                        df_t = df_t[['Adj Close']].rename(columns={'Adj Close': t})
-                        price_frames.append(df_t)
-                    except Exception as e:
-                        st.error(f"Error downloading {t}: {e}")
-                if len(price_frames) == 0:
-                    st.stop()
-                df_prices = pd.concat(price_frames, axis=1)
-                st.success("Download complete.")
+        $$
+        y(t) = \beta_0 + A \sum_{i=1}^{N} \exp\left(-\frac{(t - t_i)^2}{2\sigma^2}\right) + \varepsilon_t
+        $$
 
-            st.subheader("Interactive Price Chart")
-            fig_prices = px.line(df_prices, labels={'value': 'Price', 'index': 'Date'})
-            st.plotly_chart(fig_prices, use_container_width=True)
+        Tune the parameters below to see how the signal changes. Coefficients shown in color are the expected model parameters.
+        """
+        )
 
-            # Choose one ticker for detailed analysis
-            analysis_ticker = st.selectbox("Ticker to analyze", options=df_prices.columns.tolist())
-            series = df_prices[analysis_ticker].dropna()
+        n = st.slider("Length (points)", 200, 5000, 2000)
+        bpm = st.slider("Beats per minute (BPM)", 40, 180, 60)
+        duration = st.slider("Duration (seconds)", 1, 10, 4)
+        amplitude = st.slider("Pulse amplitude (A)", 0.0, 3.0, 1.0, step=0.1)
+        width = st.slider("Pulse width (σ)", 0.001, 0.1, 0.02, step=0.001)
+        baseline = st.slider("Baseline level (β₀)", -1.0, 3.0, 0.5, step=0.1)
+        noise_std = st.slider("Noise std (ε)", 0.0, 1.0, 0.05, step=0.01)
+        modulate = st.checkbox("Slow amplitude modulation (e.g., 'in-love')", value=False)
 
-            st.subheader("Decomposition & Stationarity")
-            freq = st.selectbox("Decompose frequency (period)", options=[7, 30, 90, 252], index=1,
-                                help="Approximate period: 30 ~ monthly, 252 ~ trading days per year")
-            try:
-                decomposition = seasonal_decompose(series, model='additive', period=freq, extrapolate_trend='freq')
-                fig_dec = go.Figure()
-                fig_dec.add_trace(go.Scatter(x=series.index, y=series, name='Original'))
-                fig_dec.add_trace(go.Scatter(x=series.index, y=decomposition.trend, name='Trend'))
-                fig_dec.add_trace(go.Scatter(x=series.index, y=decomposition.seasonal, name='Seasonal'))
-                fig_dec.update_layout(title=f"Decomposition ({analysis_ticker})")
-                st.plotly_chart(fig_dec, use_container_width=True)
-            except Exception as e:
-                st.warning(f"Decomposition failed: {e}")
+        t = np.linspace(0, duration, n)
+        # Compute beat times from BPM
+        beat_interval = 60.0 / bpm
+        beat_times = np.arange(0, duration + beat_interval, beat_interval)
 
-            # ADF stationarity test
-            try:
-                adf_res = adfuller(series.dropna())
-                st.metric("ADF Statistic", f"{adf_res[0]:.4f}")
-                st.metric("ADF p-value", f"{adf_res[1]:.4f}")
-                st.write("Critical Values:")
-                st.write(adf_res[4])
-            except Exception as e:
-                st.warning(f"ADF test failed: {e}")
+        signal = np.full_like(t, fill_value=baseline, dtype=float)
+        for bt in beat_times:
+            signal += amplitude * np.exp(-((t - bt) ** 2) / (2 * width ** 2))
 
-            st.subheader("Simple Filters & Forecasts")
-            window = st.slider("Moving average window (days)", 2, 200, 21)
-            df_plot = pd.DataFrame({
-                'price': series,
-                'MA': series.rolling(window=window).mean(),
-                'EWMA': series.ewm(span=window).mean()
-            })
-            fig_filters = go.Figure()
-            fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['price'], name='Price', line=dict(color='blue')))
-            fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['MA'], name='Moving Avg', line=dict(color='orange')))
-            fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['EWMA'], name='EWMA', line=dict(color='green')))
-            fig_filters.update_layout(title=f"Filters ({analysis_ticker})")
-            st.plotly_chart(fig_filters, use_container_width=True)
+        if modulate:
+            slow = 0.4 * np.sin(2 * np.pi * 0.25 * t) + 0.8
+            signal *= slow
 
-            st.subheader("ARIMA Forecast (optional)")
-            periods = st.number_input("Forecast horizon (periods)", min_value=1, max_value=365, value=30)
-            if HAS_PMDARIMA:
-                if st.button("Run auto_arima forecast"):
-                    with st.spinner("Fitting ARIMA (this may take a moment)..."):
-                        try:
-                            arima_model = pm.auto_arima(series.dropna(), seasonal=True, m=12, error_action='ignore', suppress_warnings=True)
-                            fc, confint = arima_model.predict(n_periods=periods, return_conf_int=True)
-                            idx = pd.date_range(start=series.index[-1] + pd.Timedelta(1, unit='D'), periods=periods, freq='D')
-                            df_fc = pd.DataFrame({'forecast': fc}, index=idx)
-                            fig_fc = go.Figure()
-                            fig_fc.add_trace(go.Scatter(x=series.index, y=series, name='History'))
-                            fig_fc.add_trace(go.Scatter(x=df_fc.index, y=df_fc['forecast'], name='ARIMA Forecast', line=dict(color='red')))
-                            st.plotly_chart(fig_fc, use_container_width=True)
-                        except Exception as e:
-                            st.error(f"ARIMA failed: {e}")
+        signal += np.random.normal(scale=noise_std, size=n)
+
+        df_hb = pd.DataFrame({"time": t, "heartbeat": signal})
+        fig_hb = px.line(df_hb, x='time', y='heartbeat', title=f"Heartbeat Simulation — BPM={bpm}")
+        st.plotly_chart(fig_hb, width='stretch')
+
+        # Display expected model coefficients with colored spans (unsafe HTML allowed)
+        coeff_html = (
+            f"<div>\n"
+            f"<b>Expected model coefficients:</b> "
+            f"<span style='color:#1f77b4'>β₀={baseline:.2f}</span>, "
+            f"<span style='color:#ff7f0e'>A={amplitude:.2f}</span>, "
+            f"<span style='color:#2ca02c'>σ={width:.3f}</span>, "
+            f"<span style='color:#d62728'>noise={noise_std:.3f}</span>\n"
+            f"</div>"
+        )
+        st.markdown(coeff_html, unsafe_allow_html=True)
+
+        st.download_button("Download heartbeat CSV", data=df_hb.to_csv(index=False).encode('utf-8'), file_name='heartbeat.csv', mime='text/csv')
+
+    # ------------------ Finance tab: original finance UI
+    with tabs[1]:
+        # Default sample tickers (user may select up to 10). Removed ^COLCAP due to unreliable coverage.
+        default_tickers = [
+            "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA", "NVDA", "META", "JPM", "XOM"
+        ]
+
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            tickers = st.multiselect("Choose tickers (1–10)", options=default_tickers, default=default_tickers[:6])
+            if len(tickers) == 0:
+                st.warning("Select at least one ticker.")
+        with col2:
+            start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"))
+            end_date = st.date_input("End date", value=pd.to_datetime("today"))
+
+        # Coerce dates to ISO strings for yfinance compatibility
+        try:
+            start_date_str = pd.to_datetime(start_date).strftime("%Y-%m-%d")
+        except Exception:
+            start_date_str = str(start_date)
+        try:
+            end_date_str = pd.to_datetime(end_date).strftime("%Y-%m-%d")
+        except Exception:
+            end_date_str = str(end_date)
+
+        if tickers and len(tickers) > 0:
+            if len(tickers) > 10:
+                st.error("Please select at most 10 tickers.")
             else:
-                st.info("Install 'pmdarima' to enable automatic ARIMA forecasting.")
+                with st.spinner("Downloading data from Yahoo Finance..."):
+                    price_frames = []
+                    for t in tickers:
+                        try:
+                            df_t = yf.download(t, start=start_date_str, end=end_date_str, progress=False)
+                            if df_t is None or df_t.empty:
+                                st.warning(f"No data for {t}.")
+                                continue
 
-            csv = df_prices.to_csv().encode('utf-8')
-            st.download_button(label="Download prices CSV", data=csv, file_name="prices.csv", mime='text/csv')
+                            # Robustly select adjusted close (fall back to Close or first numeric col)
+                            col = None
+                            candidates = ['Adj Close', 'Adj_Close', 'AdjClose', 'Close']
+                            for c in candidates:
+                                if c in df_t.columns:
+                                    col = c
+                                    break
+
+                            if col is None:
+                                # If columns are multiindex or unexpected, try to pick the last numeric column
+                                numeric_cols = [c for c in df_t.columns if pd.api.types.is_numeric_dtype(df_t[c])]
+                                if len(numeric_cols) > 0:
+                                    col = numeric_cols[-1]
+                                else:
+                                    st.warning(f"No numeric price column found for {t}. Available columns: {list(df_t.columns)}")
+                                    continue
+
+                            series = df_t[col].rename(t)
+                            price_frames.append(series.to_frame())
+                        except Exception as e:
+                            st.error(f"Error downloading {t}: {type(e).__name__}: {e}")
+                    if len(price_frames) == 0:
+                        st.stop()
+                    df_prices = pd.concat(price_frames, axis=1)
+                    st.success("Download complete.")
+
+                st.subheader("Interactive Price Chart")
+                fig_prices = px.line(df_prices, labels={'value': 'Price', 'index': 'Date'})
+                st.plotly_chart(fig_prices, width='stretch')
+
+                # --- Statistical properties: returns, volatility, correlation ---
+                st.subheader("Statistical Properties & Returns")
+                # Compute simple and log returns
+                simple_rets = df_prices.pct_change().dropna()
+                log_rets = np.log(df_prices / df_prices.shift(1)).dropna()
+                ann_factor = 252  # trading days approx
+
+                mean_log = log_rets.mean() * ann_factor
+                vol_log = log_rets.std() * np.sqrt(ann_factor)
+
+                metrics = pd.DataFrame({
+                    'Annualized Mean Return (log)': mean_log,
+                    'Annualized Volatility (log)': vol_log
+                })
+                st.dataframe(metrics.round(4), width='stretch')
+
+                st.markdown(r"""
+                **Definitions (LaTeX):**
+
+                - Log returns: $r_t = \ln\left(\frac{P_t}{P_{t-1}}\right)$
+                - Annualized mean (approx): $\mu = E[r_t] \times 252$
+                - Annualized volatility: $\sigma = \sqrt{252} \times \mathrm{std}(r_t)$
+                """)
+
+                st.subheader("Correlation / Covariance")
+                corr = log_rets.corr()
+                fig_corr = px.imshow(corr, text_auto=True, title="Log-Return Correlation")
+                st.plotly_chart(fig_corr, width='stretch')
+
+                cov = log_rets.cov() * ann_factor
+                st.subheader("Portfolio Analysis (Monte Carlo)")
+                n_sims = st.slider("Monte Carlo portfolios", 200, 10000, 2000)
+                np.random.seed(42)
+
+                rets = log_rets.mean() * ann_factor
+                cov_mat = log_rets.cov() * ann_factor
+                cols = df_prices.columns.tolist()
+
+                # Monte Carlo simulation of random portfolios
+                all_weights = np.random.dirichlet(np.ones(len(cols)), size=n_sims)
+                port_rets = all_weights.dot(rets.values)
+                port_vols = np.sqrt(np.einsum('ij,ji->i', all_weights.dot(cov_mat.values), all_weights.T))
+                sharpe = port_rets / port_vols
+
+                df_ports = pd.DataFrame({
+                    'return': port_rets,
+                    'vol': port_vols,
+                    'sharpe': sharpe
+                })
+
+                # Find max sharpe and min vol
+                max_sharpe_idx = df_ports['sharpe'].idxmax()
+                min_vol_idx = df_ports['vol'].idxmin()
+
+                st.markdown("**Random portfolios scatter (return vs volatility)**")
+                fig_scatter = px.scatter(df_ports, x='vol', y='return', color='sharpe', title='Simulated Portfolios', color_continuous_scale='Viridis')
+                fig_scatter.add_trace(go.Scatter(x=[df_ports.loc[max_sharpe_idx, 'vol']], y=[df_ports.loc[max_sharpe_idx, 'return']], mode='markers', marker=dict(color='red', size=12), name='Max Sharpe'))
+                fig_scatter.add_trace(go.Scatter(x=[df_ports.loc[min_vol_idx, 'vol']], y=[df_ports.loc[min_vol_idx, 'return']], mode='markers', marker=dict(color='black', size=12), name='Min Vol'))
+                st.plotly_chart(fig_scatter, width='stretch')
+
+                def weights_for_idx(idx):
+                    w = all_weights[idx]
+                    return pd.Series(w, index=cols)
+
+                st.subheader('Representative Portfolios')
+                st.markdown('**Maximum Sharpe Portfolio weights:**')
+                st.dataframe(weights_for_idx(max_sharpe_idx).round(4).to_frame('weight'), width='stretch')
+                st.markdown('**Minimum Volatility Portfolio weights:**')
+                st.dataframe(weights_for_idx(min_vol_idx).round(4).to_frame('weight'), width='stretch')
+
+                # Plot cumulative returns for equal-weight and min-vol
+                equal_w = np.repeat(1 / len(cols), len(cols))
+                minvol_w = all_weights[min_vol_idx]
+
+                df_cum = pd.DataFrame({
+                    'Equal-Weighted': (df_prices / df_prices.iloc[0]).mean(axis=1),
+                    'MC Min-Vol': (df_prices * minvol_w).sum(axis=1) / (df_prices * minvol_w).sum(axis=1).iloc[0]
+                })
+                fig_cum = px.line(df_cum, title='Representative Portfolio Cumulative Prices')
+                st.plotly_chart(fig_cum, width='stretch')
+
+                # Choose one ticker for detailed analysis
+                analysis_ticker = st.selectbox("Ticker to analyze", options=df_prices.columns.tolist())
+                series = df_prices[analysis_ticker].dropna()
+
+                st.subheader("Decomposition & Stationarity")
+                freq = st.selectbox("Decompose frequency (period)", options=[7, 30, 90, 252], index=1,
+                                    help="Approximate period: 30 ~ monthly, 252 ~ trading days per year")
+                try:
+                    decomposition = seasonal_decompose(series, model='additive', period=freq, extrapolate_trend='freq')
+                    fig_dec = go.Figure()
+                    fig_dec.add_trace(go.Scatter(x=series.index, y=series, name='Original'))
+                    fig_dec.add_trace(go.Scatter(x=series.index, y=decomposition.trend, name='Trend'))
+                    fig_dec.add_trace(go.Scatter(x=series.index, y=decomposition.seasonal, name='Seasonal'))
+                    fig_dec.update_layout(title=f"Decomposition ({analysis_ticker})")
+                    st.plotly_chart(fig_dec, width='stretch')
+                except Exception as e:
+                    st.warning(f"Decomposition failed: {e}")
+
+                # ADF stationarity test
+                try:
+                    adf_res = adfuller(series.dropna())
+                    st.metric("ADF Statistic", f"{adf_res[0]:.4f}")
+                    st.metric("ADF p-value", f"{adf_res[1]:.4f}")
+                    st.write("Critical Values:")
+                    st.write(adf_res[4])
+                except Exception as e:
+                    st.warning(f"ADF test failed: {e}")
+
+                st.subheader("Simple Filters & Forecasts")
+                window = st.slider("Moving average window (days)", 2, 200, 21)
+                df_plot = pd.DataFrame({
+                    'price': series,
+                    'MA': series.rolling(window=window).mean(),
+                    'EWMA': series.ewm(span=window).mean()
+                })
+                fig_filters = go.Figure()
+                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['price'], name='Price', line=dict(color='blue')))
+                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['MA'], name='Moving Avg', line=dict(color='orange')))
+                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['EWMA'], name='EWMA', line=dict(color='green')))
+                fig_filters.update_layout(title=f"Filters ({analysis_ticker})")
+                st.plotly_chart(fig_filters, width='stretch')
+
+                st.subheader("ARIMA Forecast (optional)")
+                periods = st.number_input("Forecast horizon (periods)", min_value=1, max_value=365, value=30)
+                if HAS_PMDARIMA:
+                    if st.button("Run auto_arima forecast"):
+                        with st.spinner("Fitting ARIMA (this may take a moment)..."):
+                            try:
+                                arima_model = pm.auto_arima(series.dropna(), seasonal=True, m=12, error_action='ignore', suppress_warnings=True)
+                                fc, confint = arima_model.predict(n_periods=periods, return_conf_int=True)
+                                idx = pd.date_range(start=series.index[-1] + pd.Timedelta(1, unit='D'), periods=periods, freq='D')
+                                df_fc = pd.DataFrame({'forecast': fc}, index=idx)
+                                fig_fc = go.Figure()
+                                fig_fc.add_trace(go.Scatter(x=series.index, y=series, name='History'))
+                                fig_fc.add_trace(go.Scatter(x=df_fc.index, y=df_fc['forecast'], name='ARIMA Forecast', line=dict(color='red')))
+                                st.plotly_chart(fig_fc, width='stretch')
+                            except Exception as e:
+                                st.error(f"ARIMA failed: {e}")
+                else:
+                    st.info("Install 'pmdarima' to enable automatic ARIMA forecasting.")
+
+                csv = df_prices.to_csv().encode('utf-8')
+                st.download_button(label="Download prices CSV", data=csv, file_name="prices.csv", mime='text/csv')
