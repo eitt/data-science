@@ -1,9 +1,3 @@
-Here is your updated `README.md` file.
-
-I have completely overhauled it to match the final 9-page structure of your application, updated the dependencies, and added the author profile as you requested.
-
------
-
 # Understanding Supervised Learning: An Interactive Streamlit App
 
 This is an interactive Streamlit web application designed to teach the fundamental concepts of supervised machine learning. It provides hands-on, visual demonstrations of optimization, regression, classification, and neural networks.
