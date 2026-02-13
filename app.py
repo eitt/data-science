@@ -1216,34 +1216,56 @@ elif page == "Finance (Stochastic Processes)":
 
     # ------------------ Heartbeat tab: simple stochastic process illustrations
     with tabs[0]:
-        st.subheader("Heartbeat — stochastic processes (constant, normal noise, 'in-love')")
-        st.markdown("""
-        Three simple processes to illustrate stochastic behavior in a heartbeat-like signal:
-        - Constant: baseline pulse (no noise)
-        - Normal: baseline + Gaussian noise
-        - In-Love: baseline with rhythmic amplitude modulation + noise (playful "in-love" variability)
-        """)
+        st.subheader("Heartbeat — stochastic processes (Gaussian pulse model)")
+        st.markdown(
+            """
+        We model a heartbeat-like signal as a baseline plus a train of Gaussian pulses (one pulse per beat):
 
-        n = st.slider("Length (points)", 100, 5000, 1000)
-        freq = st.slider("Base heartbeat frequency (Hz-like)", 1, 10, 2)
-        sigma = st.slider("Noise std (σ)", 0.0, 2.0, 0.3)
-        proc = st.selectbox("Process type", ["Constant", "Normal Noise", "In-Love (Modulated)"])
+        $$y(t) = \beta_0 + A \sum_{i=1}^{N} \exp\left(-\frac{(t - t_i)^2}{2\sigma^2}\right) + \varepsilon_t$$
 
-        t = np.linspace(0, 1, n)
-        baseline = 0.5 * np.sin(2 * np.pi * freq * t) + 1.0
+        Tune the parameters below to see how the signal changes. Coefficients shown in color are the expected model parameters.
+        """
+        )
 
-        if proc == "Constant":
-            series = np.full_like(t, fill_value=baseline.mean())
-        elif proc == "Normal Noise":
-            series = baseline + np.random.normal(scale=sigma, size=n)
-        else:
-            # In-Love: slow amplitude modulation + noise
-            mod = 0.4 * np.sin(2 * np.pi * 0.5 * t) + 0.6
-            series = (baseline * mod) + np.random.normal(scale=sigma * 0.6, size=n)
+        n = st.slider("Length (points)", 200, 5000, 2000)
+        bpm = st.slider("Beats per minute (BPM)", 40, 180, 60)
+        duration = st.slider("Duration (seconds)", 1, 10, 4)
+        amplitude = st.slider("Pulse amplitude (A)", 0.0, 3.0, 1.0, step=0.1)
+        width = st.slider("Pulse width (σ)", 0.001, 0.1, 0.02, step=0.001)
+        baseline = st.slider("Baseline level (β₀)", -1.0, 3.0, 0.5, step=0.1)
+        noise_std = st.slider("Noise std (ε)", 0.0, 1.0, 0.05, step=0.01)
+        modulate = st.checkbox("Slow amplitude modulation (e.g., 'in-love')", value=False)
 
-        df_hb = pd.DataFrame({"time": t, "heartbeat": series})
-        fig_hb = px.line(df_hb, x='time', y='heartbeat', title=f"Heartbeat — {proc}")
+        t = np.linspace(0, duration, n)
+        # Compute beat times from BPM
+        beat_interval = 60.0 / bpm
+        beat_times = np.arange(0, duration + beat_interval, beat_interval)
+
+        signal = np.full_like(t, fill_value=baseline, dtype=float)
+        for bt in beat_times:
+            signal += amplitude * np.exp(-((t - bt) ** 2) / (2 * width ** 2))
+
+        if modulate:
+            slow = 0.4 * np.sin(2 * np.pi * 0.25 * t) + 0.8
+            signal *= slow
+
+        signal += np.random.normal(scale=noise_std, size=n)
+
+        df_hb = pd.DataFrame({"time": t, "heartbeat": signal})
+        fig_hb = px.line(df_hb, x='time', y='heartbeat', title=f"Heartbeat Simulation — BPM={bpm}")
         st.plotly_chart(fig_hb, use_container_width=True)
+
+        # Display expected model coefficients with colored spans (unsafe HTML allowed)
+        coeff_html = (
+            f"<div>\n"
+            f"<b>Expected model coefficients:</b> "
+            f"<span style='color:#1f77b4'>β₀={baseline:.2f}</span>, "
+            f"<span style='color:#ff7f0e'>A={amplitude:.2f}</span>, "
+            f"<span style='color:#2ca02c'>σ={width:.3f}</span>, "
+            f"<span style='color:#d62728'>noise={noise_std:.3f}</span>\n"
+            f"</div>"
+        )
+        st.markdown(coeff_html, unsafe_allow_html=True)
 
         st.download_button("Download heartbeat CSV", data=df_hb.to_csv(index=False).encode('utf-8'), file_name='heartbeat.csv', mime='text/csv')
 
@@ -1272,11 +1294,29 @@ elif page == "Finance (Stochastic Processes)":
                     for t in tickers:
                         try:
                             df_t = yf.download(t, start=start_date, end=end_date, progress=False)
-                            if df_t.empty:
+                            if df_t is None or df_t.empty:
                                 st.warning(f"No data for {t}.")
                                 continue
-                            df_t = df_t[['Adj Close']].rename(columns={'Adj Close': t})
-                            price_frames.append(df_t)
+
+                            # Robustly select adjusted close (fall back to Close or first numeric col)
+                            col = None
+                            candidates = ['Adj Close', 'Adj_Close', 'AdjClose', 'Close']
+                            for c in candidates:
+                                if c in df_t.columns:
+                                    col = c
+                                    break
+
+                            if col is None:
+                                # If columns are multiindex or unexpected, try to pick the last numeric column
+                                numeric_cols = [c for c in df_t.columns if pd.api.types.is_numeric_dtype(df_t[c])]
+                                if len(numeric_cols) > 0:
+                                    col = numeric_cols[-1]
+                                else:
+                                    st.warning(f"No numeric price column found for {t}. Available columns: {list(df_t.columns)}")
+                                    continue
+
+                            series = df_t[col].rename(t)
+                            price_frames.append(series.to_frame())
                         except Exception as e:
                             st.error(f"Error downloading {t}: {e}")
                     if len(price_frames) == 0:
@@ -1287,6 +1327,87 @@ elif page == "Finance (Stochastic Processes)":
                 st.subheader("Interactive Price Chart")
                 fig_prices = px.line(df_prices, labels={'value': 'Price', 'index': 'Date'})
                 st.plotly_chart(fig_prices, use_container_width=True)
+
+                # --- Statistical properties: returns, volatility, correlation ---
+                st.subheader("Statistical Properties & Returns")
+                # Compute simple and log returns
+                simple_rets = df_prices.pct_change().dropna()
+                log_rets = np.log(df_prices / df_prices.shift(1)).dropna()
+                ann_factor = 252  # trading days approx
+
+                mean_log = log_rets.mean() * ann_factor
+                vol_log = log_rets.std() * np.sqrt(ann_factor)
+
+                metrics = pd.DataFrame({
+                    'Annualized Mean Return (log)': mean_log,
+                    'Annualized Volatility (log)': vol_log
+                })
+                st.dataframe(metrics.round(4), use_container_width=True)
+
+                st.markdown(r"""
+                **Definitions (LaTeX):**
+
+                - Log returns: $r_t = \ln\left(\frac{P_t}{P_{t-1}}\right)$
+                - Annualized mean (approx): $\mu = E[r_t] \times 252$
+                - Annualized volatility: $\sigma = \sqrt{252} \times \mathrm{std}(r_t)$
+                """)
+
+                st.subheader("Correlation / Covariance")
+                corr = log_rets.corr()
+                fig_corr = px.imshow(corr, text_auto=True, title="Log-Return Correlation")
+                st.plotly_chart(fig_corr, use_container_width=True)
+
+                cov = log_rets.cov() * ann_factor
+                st.subheader("Portfolio Analysis (Monte Carlo)")
+                n_sims = st.slider("Monte Carlo portfolios", 200, 10000, 2000)
+                np.random.seed(42)
+
+                rets = log_rets.mean() * ann_factor
+                cov_mat = log_rets.cov() * ann_factor
+                cols = df_prices.columns.tolist()
+
+                # Monte Carlo simulation of random portfolios
+                all_weights = np.random.dirichlet(np.ones(len(cols)), size=n_sims)
+                port_rets = all_weights.dot(rets.values)
+                port_vols = np.sqrt(np.einsum('ij,ji->i', all_weights.dot(cov_mat.values), all_weights.T))
+                sharpe = port_rets / port_vols
+
+                df_ports = pd.DataFrame({
+                    'return': port_rets,
+                    'vol': port_vols,
+                    'sharpe': sharpe
+                })
+
+                # Find max sharpe and min vol
+                max_sharpe_idx = df_ports['sharpe'].idxmax()
+                min_vol_idx = df_ports['vol'].idxmin()
+
+                st.markdown("**Random portfolios scatter (return vs volatility)**")
+                fig_scatter = px.scatter(df_ports, x='vol', y='return', color='sharpe', title='Simulated Portfolios', color_continuous_scale='Viridis')
+                fig_scatter.add_trace(go.Scatter(x=[df_ports.loc[max_sharpe_idx, 'vol']], y=[df_ports.loc[max_sharpe_idx, 'return']], mode='markers', marker=dict(color='red', size=12), name='Max Sharpe'))
+                fig_scatter.add_trace(go.Scatter(x=[df_ports.loc[min_vol_idx, 'vol']], y=[df_ports.loc[min_vol_idx, 'return']], mode='markers', marker=dict(color='black', size=12), name='Min Vol'))
+                st.plotly_chart(fig_scatter, use_container_width=True)
+
+                def weights_for_idx(idx):
+                    w = all_weights[idx]
+                    return pd.Series(w, index=cols)
+
+                st.subheader('Representative Portfolios')
+                st.markdown('**Maximum Sharpe Portfolio weights:**')
+                st.dataframe(weights_for_idx(max_sharpe_idx).round(4).to_frame('weight'), use_container_width=True)
+                st.markdown('**Minimum Volatility Portfolio weights:**')
+                st.dataframe(weights_for_idx(min_vol_idx).round(4).to_frame('weight'), use_container_width=True)
+
+                # Plot cumulative returns for equal-weight and min-vol
+                equal_w = np.repeat(1 / len(cols), len(cols))
+                minvol_w = all_weights[min_vol_idx]
+
+                df_cum = pd.DataFrame({
+                    'Equal-Weighted': (df_prices / df_prices.iloc[0]).mean(axis=1),
+                    'MC Min-Vol': (df_prices * minvol_w).sum(axis=1) / (df_prices * minvol_w).sum(axis=1).iloc[0]
+                })
+                fig_cum = px.line(df_cum, title='Representative Portfolio Cumulative Prices')
+                st.plotly_chart(fig_cum, use_container_width=True)
 
                 # Choose one ticker for detailed analysis
                 analysis_ticker = st.selectbox("Ticker to analyze", options=df_prices.columns.tolist())
