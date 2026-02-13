@@ -1057,14 +1057,11 @@ elif page == "Time Series (Data Leaks)":
     st.markdown(r"A time series $Y_t$ is often a combination of Trend ($T_t$), Seasonality ($S_t$), and Noise ($\epsilon_t$). Models can be **Additive** ($Y_t = T_t + S_t + \epsilon_t$) or **Multiplicative** ($Y_t = T_t \times S_t \times \epsilon_t$). The key concept is **Autocorrelation**: the idea that $y_{t-1}$ is useful for predicting $y_t$.")
     
     st.subheader("3. Comparison of Time Series Models")
-    st.markdown(r"""
-        We model a heartbeat-like signal as a baseline plus a train of Gaussian pulses (one pulse per beat):
+    st.markdown("We model a heartbeat-like signal as a baseline plus a train of Gaussian pulses (one pulse per beat):")
 
-    \[
-    y(t) = \beta_0 + A \sum_{i=1}^{N} \exp\left(-\frac{(t - t_i)^2}{2\sigma^2}\right) + \varepsilon_t
-    \]
-Tune the parameters below to see how the signal changes. Coefficients shown in color are the expected model parameters.
-        """)
+    st.latex(r"y(t) = \beta_0 + A \sum_{i=1}^{N} \exp\left(-\frac{(t - t_i)^2}{2\sigma^2}\right) + \varepsilon_t")
+
+    st.markdown("Tune the parameters below to see how the signal changes. Coefficients shown in color are the expected model parameters.")
     n_lags = st.slider("Number of Lagged Features", 1, 10, 3, key="tab4_lags")
     split_pct = st.slider("Train/Test Split (Time-Based)", 0.6, 0.9, 0.7, 0.05, key="tab4_split")
     
