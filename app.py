@@ -1271,9 +1271,9 @@ elif page == "Finance (Stochastic Processes)":
 
     # ------------------ Finance tab: original finance UI
     with tabs[1]:
-        # Default sample tickers (user may select up to 10)
+        # Default sample tickers (user may select up to 10). Removed ^COLCAP due to unreliable coverage.
         default_tickers = [
-            "^COLCAP", "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA", "NVDA", "META", "JPM", "XOM"
+            "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA", "NVDA", "META", "JPM", "XOM"
         ]
 
         col1, col2 = st.columns([2, 1])
@@ -1285,6 +1285,16 @@ elif page == "Finance (Stochastic Processes)":
             start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"))
             end_date = st.date_input("End date", value=pd.to_datetime("today"))
 
+        # Coerce dates to ISO strings for yfinance compatibility
+        try:
+            start_date_str = pd.to_datetime(start_date).strftime("%Y-%m-%d")
+        except Exception:
+            start_date_str = str(start_date)
+        try:
+            end_date_str = pd.to_datetime(end_date).strftime("%Y-%m-%d")
+        except Exception:
+            end_date_str = str(end_date)
+
         if tickers and len(tickers) > 0:
             if len(tickers) > 10:
                 st.error("Please select at most 10 tickers.")
@@ -1293,7 +1303,7 @@ elif page == "Finance (Stochastic Processes)":
                     price_frames = []
                     for t in tickers:
                         try:
-                            df_t = yf.download(t, start=start_date, end=end_date, progress=False)
+                            df_t = yf.download(t, start=start_date_str, end=end_date_str, progress=False)
                             if df_t is None or df_t.empty:
                                 st.warning(f"No data for {t}.")
                                 continue
@@ -1318,7 +1328,7 @@ elif page == "Finance (Stochastic Processes)":
                             series = df_t[col].rename(t)
                             price_frames.append(series.to_frame())
                         except Exception as e:
-                            st.error(f"Error downloading {t}: {e}")
+                            st.error(f"Error downloading {t}: {type(e).__name__}: {e}")
                     if len(price_frames) == 0:
                         st.stop()
                     df_prices = pd.concat(price_frames, axis=1)
