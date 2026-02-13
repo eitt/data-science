@@ -1060,9 +1060,10 @@ elif page == "Time Series (Data Leaks)":
     st.markdown(r"""
         We model a heartbeat-like signal as a baseline plus a train of Gaussian pulses (one pulse per beat):
 
-        $$y(t) = \beta_0 + A \sum_{i=1}^{N} \exp\left(-\frac{(t - t_i)^2}{2\sigma^2}\right) + \varepsilon_t$$
-
-        Tune the parameters below to see how the signal changes. Coefficients shown in color are the expected model parameters.
+    \[
+    y(t) = \beta_0 + A \sum_{i=1}^{N} \exp\left(-\frac{(t - t_i)^2}{2\sigma^2}\right) + \varepsilon_t
+    \]
+Tune the parameters below to see how the signal changes. Coefficients shown in color are the expected model parameters.
         """)
     n_lags = st.slider("Number of Lagged Features", 1, 10, 3, key="tab4_lags")
     split_pct = st.slider("Train/Test Split (Time-Based)", 0.6, 0.9, 0.7, 0.05, key="tab4_split")
