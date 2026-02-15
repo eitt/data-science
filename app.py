@@ -1196,10 +1196,18 @@ elif page == "TS Analysis":
 # --- Page: Finance (Stochastic Processes) ---
 # ==============================================================================
 elif page == "Finance (Stochastic Processes)":
-    st.header("Stochastic Processes — Finance (Yahoo Finance)")
+    st.header("📈 Stochastic Processes & Financial Analytics")
     st.markdown("""
-    Download price series from Yahoo Finance, inspect stochastic components (trend, seasonality, noise),
-    run stationarity tests, and try simple forecasting approaches. Useful for classroom demonstrations.
+    Explore the intersection of **stochastic modeling** and **financial markets**. 
+    This interactive tool allows you to:
+    * **Simulate** heartbeat-like signals as stochastic processes.
+    * **Download** real-time or historical data from Yahoo Finance.
+    * **Decompose** series into trend, seasonality, and noise.
+    * **Test** for stationarity and model volatility.
+    * **Compare** reality against a Geometric Brownian Motion (Random Walk).
+    * **Forecast** using baseline and ARIMA models.
+    
+    *Perfect for classroom demonstrations on time-series analysis and quantitative finance.*
     """)
 
     tabs = st.tabs(["Heartbeat (Stochastic Processes)", "Finance (Yahoo)"])
@@ -1208,7 +1216,7 @@ elif page == "Finance (Stochastic Processes)":
     with tabs[0]:
         st.subheader("Heartbeat — stochastic processes (Gaussian pulse model)")
         st.markdown(
-            """
+            r"""
         We model a heartbeat-like signal as a baseline plus a train of Gaussian pulses (one pulse per beat):
 
         $$
@@ -1295,35 +1303,38 @@ elif page == "Finance (Stochastic Processes)":
                     price_frames = []
                     for t in tickers:
                         try:
-                            df_t = yf.download(t, start=start_date_str, end=end_date_str, progress=False)
+                            # Use yf.Ticker for better reliability and single-ticker handling
+                            tk = yf.Ticker(t)
+                            df_t = tk.history(start=start_date_str, end=end_date_str)
+                            
                             if df_t is None or df_t.empty:
                                 st.warning(f"No data for {t}.")
                                 continue
 
-                            # Robustly select adjusted close (fall back to Close or first numeric col)
-                            col = None
-                            candidates = ['Adj Close', 'Adj_Close', 'AdjClose', 'Close']
-                            for c in candidates:
-                                if c in df_t.columns:
-                                    col = c
-                                    break
-
-                            if col is None:
-                                # If columns are multiindex or unexpected, try to pick the last numeric column
-                                numeric_cols = [c for c in df_t.columns if pd.api.types.is_numeric_dtype(df_t[c])]
+                            # Standardize column selection - Close is usually what we want for history()
+                            # history() returns 'Close' which is split-adjusted
+                            if 'Close' in df_t.columns:
+                                series = df_t['Close'].rename(t)
+                            else:
+                                # Fallback to first numeric column
+                                numeric_cols = df_t.select_dtypes(include=[np.number]).columns
                                 if len(numeric_cols) > 0:
-                                    col = numeric_cols[-1]
+                                    series = df_t[numeric_cols[-1]].rename(t)
                                 else:
-                                    st.warning(f"No numeric price column found for {t}. Available columns: {list(df_t.columns)}")
+                                    st.warning(f"No numeric price column found for {t}.")
                                     continue
-
-                            series = df_t[col].rename(t)
+                            
                             price_frames.append(series.to_frame())
                         except Exception as e:
                             st.error(f"Error downloading {t}: {type(e).__name__}: {e}")
+                            st.info("Tip: Try adjusting the date range or check if the ticker is correct.")
+                    
                     if len(price_frames) == 0:
                         st.stop()
+                    
                     df_prices = pd.concat(price_frames, axis=1)
+                    # Clean the index to ensure it's simple datetime
+                    df_prices.index = pd.to_datetime(df_prices.index).tz_localize(None)
                     st.success("Download complete.")
 
                 st.subheader("Interactive Price Chart")
@@ -1400,46 +1411,103 @@ elif page == "Finance (Stochastic Processes)":
                 st.markdown('**Minimum Volatility Portfolio weights:**')
                 st.dataframe(weights_for_idx(min_vol_idx).round(4).to_frame('weight'), width='stretch')
 
-                # Plot cumulative returns for equal-weight and min-vol
-                equal_w = np.repeat(1 / len(cols), len(cols))
-                minvol_w = all_weights[min_vol_idx]
-
                 df_cum = pd.DataFrame({
                     'Equal-Weighted': (df_prices / df_prices.iloc[0]).mean(axis=1),
                     'MC Min-Vol': (df_prices * minvol_w).sum(axis=1) / (df_prices * minvol_w).sum(axis=1).iloc[0]
                 })
-                fig_cum = px.line(df_cum, title='Representative Portfolio Cumulative Prices')
+                fig_cum = px.line(df_cum, title='Representative Portfolio Cumulative Performance (Normalized)')
+                fig_cum.update_layout(yaxis_title="Normalized Value (Start = 1.0)")
                 st.plotly_chart(fig_cum, width='stretch')
 
-                # Choose one ticker for detailed analysis
+                # --- NEW: Random Walk Comparison ---
+                st.subheader("Random Walk vs. Reality")
+                st.markdown("""
+                Is the market a **Random Walk**? Let's simulate a Geometric Brownian Motion (GBM) 
+                with the same drift and volatility as the selected ticker.
+                """)
+                
                 analysis_ticker = st.selectbox("Ticker to analyze", options=df_prices.columns.tolist())
                 series = df_prices[analysis_ticker].dropna()
+                
+                # Parameters for GBM simulation
+                mu_val = mean_log[analysis_ticker]
+                sigma_val = vol_log[analysis_ticker]
+                n_days = len(series)
+                dt = 1/252
+                
+                # Generate random walk
+                np.random.seed(st.session_state.seed)
+                shocks = np.random.normal(0, 1, n_days)
+                gbm_returns = (mu_val - 0.5 * sigma_val**2) * dt + sigma_val * np.sqrt(dt) * shocks
+                gbm_price = series.iloc[0] * np.exp(np.cumsum(gbm_returns))
+                
+                df_rw = pd.DataFrame({
+                    'Actual Price': series.values,
+                    'Simulated GBM': gbm_price
+                }, index=series.index)
+                
+                fig_rw = px.line(df_rw, title=f"Actual vs Simulated Random Walk ({analysis_ticker})")
+                st.plotly_chart(fig_rw, width='stretch')
 
                 st.subheader("Decomposition & Stationarity")
-                freq = st.selectbox("Decompose frequency (period)", options=[7, 30, 90, 252], index=1,
-                                    help="Approximate period: 30 ~ monthly, 252 ~ trading days per year")
+                st.markdown("""
+                We decompose the series into:
+                1. **Trend**: The long-term direction.
+                2. **Seasonal**: Periodic fluctuations (e.g., weekly cycles).
+                3. **Residual (Noise)**: The stochastic/random part.
+                """)
+                freq = st.selectbox("Decompose frequency (period)", options=[5, 21, 63, 252], index=1,
+                                    help="5 ~ weekly, 21 ~ monthly, 63 ~ quarterly, 252 ~ annual")
                 try:
+                    # Use multiplicative for finance if possible, but additive is safer for price series
                     decomposition = seasonal_decompose(series, model='additive', period=freq, extrapolate_trend='freq')
-                    fig_dec = go.Figure()
-                    fig_dec.add_trace(go.Scatter(x=series.index, y=series, name='Original'))
-                    fig_dec.add_trace(go.Scatter(x=series.index, y=decomposition.trend, name='Trend'))
-                    fig_dec.add_trace(go.Scatter(x=series.index, y=decomposition.seasonal, name='Seasonal'))
-                    fig_dec.update_layout(title=f"Decomposition ({analysis_ticker})")
-                    st.plotly_chart(fig_dec, width='stretch')
+                    
+                    dec_col1, dec_col2 = st.columns(2)
+                    with dec_col1:
+                        fig_dec_t = px.line(decomposition.trend, title="Trend Component")
+                        st.plotly_chart(fig_dec_t, width='stretch')
+                    with dec_col2:
+                        fig_dec_s = px.line(decomposition.seasonal, title="Seasonal Component")
+                        st.plotly_chart(fig_dec_s, width='stretch')
+                    
+                    fig_resid = px.scatter(decomposition.resid, title="Residuals (Noise / Stochastic)")
+                    st.plotly_chart(fig_resid, width='stretch')
+                    
                 except Exception as e:
                     st.warning(f"Decomposition failed: {e}")
 
                 # ADF stationarity test
-                try:
-                    adf_res = adfuller(series.dropna())
-                    st.metric("ADF Statistic", f"{adf_res[0]:.4f}")
-                    st.metric("ADF p-value", f"{adf_res[1]:.4f}")
-                    st.write("Critical Values:")
-                    st.write(adf_res[4])
-                except Exception as e:
-                    st.warning(f"ADF test failed: {e}")
+                st.markdown("#### Augmented Dickey-Fuller (ADF) Test")
+                st.info("Stationarity means the mean and variance stay constant over time. Financial prices are usually NOT stationary, but returns are.")
+                
+                test_col1, test_col2 = st.columns(2)
+                with test_col1:
+                    st.write("**On Prices:**")
+                    try:
+                        adf_res = adfuller(series.dropna())
+                        st.metric("ADF Statistic", f"{adf_res[0]:.4f}")
+                        st.metric("p-value", f"{adf_res[1]:.4f}")
+                        if adf_res[1] < 0.05:
+                            st.success("Stationary (reject H0)")
+                        else:
+                            st.warning("Non-Stationary (fail to reject H0)")
+                    except Exception as e:
+                        st.error(f"ADF failed: {e}")
+                
+                with test_col2:
+                    st.write("**On Log-Returns:**")
+                    try:
+                        adf_ret = adfuller(log_rets[analysis_ticker].dropna())
+                        st.metric("ADF Statistic", f"{adf_ret[0]:.4f}")
+                        st.metric("p-value", f"{adf_ret[1]:.4f}")
+                        if adf_ret[1] < 0.05:
+                            st.success("Stationary (reject H0)")
+                        else:
+                            st.warning("Non-Stationary")
+                    except Exception as e:
+                        st.error(f"ADF failed: {e}")
 
-                st.subheader("Simple Filters & Forecasts")
+                st.subheader("Simple Filters & Smoothing")
                 window = st.slider("Moving average window (days)", 2, 200, 21)
                 df_plot = pd.DataFrame({
                     'price': series,
@@ -1447,30 +1515,72 @@ elif page == "Finance (Stochastic Processes)":
                     'EWMA': series.ewm(span=window).mean()
                 })
                 fig_filters = go.Figure()
-                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['price'], name='Price', line=dict(color='blue')))
-                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['MA'], name='Moving Avg', line=dict(color='orange')))
-                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['EWMA'], name='EWMA', line=dict(color='green')))
-                fig_filters.update_layout(title=f"Filters ({analysis_ticker})")
+                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['price'], name='Price', line=dict(color='rgba(0,0,255,0.4)')))
+                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['MA'], name='Moving Avg', line=dict(color='orange', width=3)))
+                fig_filters.add_trace(go.Scatter(x=df_plot.index, y=df_plot['EWMA'], name='EWMA', line=dict(color='green', width=2)))
+                fig_filters.update_layout(title=f"Smoothing Filters ({analysis_ticker})", xaxis_title="Date", yaxis_title="Price")
                 st.plotly_chart(fig_filters, width='stretch')
 
-                st.subheader("ARIMA Forecast (optional)")
-                periods = st.number_input("Forecast horizon (periods)", min_value=1, max_value=365, value=30)
-                if HAS_PMDARIMA:
-                    if st.button("Run auto_arima forecast"):
-                        with st.spinner("Fitting ARIMA (this may take a moment)..."):
-                            try:
-                                arima_model = pm.auto_arima(series.dropna(), seasonal=True, m=12, error_action='ignore', suppress_warnings=True)
-                                fc, confint = arima_model.predict(n_periods=periods, return_conf_int=True)
-                                idx = pd.date_range(start=series.index[-1] + pd.Timedelta(1, unit='D'), periods=periods, freq='D')
-                                df_fc = pd.DataFrame({'forecast': fc}, index=idx)
-                                fig_fc = go.Figure()
-                                fig_fc.add_trace(go.Scatter(x=series.index, y=series, name='History'))
-                                fig_fc.add_trace(go.Scatter(x=df_fc.index, y=df_fc['forecast'], name='ARIMA Forecast', line=dict(color='red')))
-                                st.plotly_chart(fig_fc, width='stretch')
-                            except Exception as e:
-                                st.error(f"ARIMA failed: {e}")
-                else:
-                    st.info("Install 'pmdarima' to enable automatic ARIMA forecasting.")
+                st.subheader("Forecasting Approaches")
+                forecast_tabs = st.tabs(["Naive / Drift", "ARIMA (Advanced)"])
+                
+                with forecast_tabs[0]:
+                    st.markdown("""
+                    **Naive Forecasts**:
+                    - **Persistence**: Tomorrow = Today.
+                    - **Drift**: Tomorrow = Today + Average Daily Change. 
+                    """)
+                    horizon = st.slider("Forecast days", 1, 90, 30, key="naive_horizon")
+                    
+                    last_price = series.iloc[-1]
+                    avg_drift = (series.iloc[-1] - series.iloc[0]) / len(series)
+                    
+                    future_idx = pd.date_range(start=series.index[-1] + pd.Timedelta(1, unit='D'), periods=horizon, freq='D')
+                    persistence = np.full(horizon, last_price)
+                    drift = last_price + np.arange(1, horizon + 1) * avg_drift
+                    
+                    fig_naive = go.Figure()
+                    fig_naive.add_trace(go.Scatter(x=series.index[-100:], y=series.iloc[-100:], name='Recent History'))
+                    fig_naive.add_trace(go.Scatter(x=future_idx, y=persistence, name='Persistence', line=dict(dash='dash')))
+                    fig_naive.add_trace(go.Scatter(x=future_idx, y=drift, name='Drift', line=dict(dash='dot')))
+                    fig_naive.update_layout(title=f"Simple Baseline Forecasts ({analysis_ticker})")
+                    st.plotly_chart(fig_naive, width='stretch')
+
+                with forecast_tabs[1]:
+                    st.subheader("ARIMA Forecast")
+                    periods = st.number_input("Forecast horizon (periods)", min_value=1, max_value=365, value=30, key="arima_horizon")
+                    if HAS_PMDARIMA:
+                        if st.button("Run auto_arima forecast", type="primary"):
+                            with st.spinner("Fitting ARIMA (this may take a moment)..."):
+                                try:
+                                    # auto_arima from pmdarima finds the optimal (p,d,q)
+                                    arima_model = pm.auto_arima(series.dropna(), seasonal=True, m=freq, error_action='ignore', suppress_warnings=True)
+                                    fc, confint = arima_model.predict(n_periods=periods, return_conf_int=True)
+                                    
+                                    idx = pd.date_range(start=series.index[-1] + pd.Timedelta(1, unit='D'), periods=periods, freq='D')
+                                    df_fc = pd.DataFrame({'forecast': fc}, index=idx)
+                                    
+                                    fig_fc = go.Figure()
+                                    # Show last 1 year of history for context
+                                    hist_zoom = series.iloc[-min(252, len(series)):]
+                                    fig_fc.add_trace(go.Scatter(x=hist_zoom.index, y=hist_zoom, name='History', line=dict(color='blue')))
+                                    fig_fc.add_trace(go.Scatter(x=df_fc.index, y=df_fc['forecast'], name='ARIMA Forecast', line=dict(color='red', width=3)))
+                                    
+                                    # Add confidence interval
+                                    fig_fc.add_trace(go.Scatter(
+                                        x=idx.tolist() + idx.tolist()[::-1],
+                                        y=confint[:, 0].tolist() + confint[:, 1].tolist()[::-1],
+                                        fill='toself', fillcolor='rgba(255,0,0,0.1)',
+                                        line=dict(color='rgba(255,0,0,0)'), name='95% Conf. Interval'
+                                    ))
+                                    
+                                    fig_fc.update_layout(title=f"ARIMA(p,d,q) Forecast for {analysis_ticker}", xaxis_title="Date", yaxis_title="Price")
+                                    st.plotly_chart(fig_fc, width='stretch')
+                                    st.write(f"**Model Summary:** The auto-selected parameters are {arima_model.order}")
+                                except Exception as e:
+                                    st.error(f"ARIMA failed: {e}")
+                    else:
+                        st.info("Install 'pmdarima' to enable automatic ARIMA forecasting.")
 
                 csv = df_prices.to_csv().encode('utf-8')
                 st.download_button(label="Download prices CSV", data=csv, file_name="prices.csv", mime='text/csv')
