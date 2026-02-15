@@ -1,0 +1,132 @@
+\documentclass[aspectratio=169]{beamer}
+
+% --- Theme and Colors ---
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+\usepackage{booktabs}
+\usepackage[scale=2]{ccicons}
+\usepackage{pgfplots}
+\usepgfplotslibrary{dateplot}
+\usepackage{xspace}
+\newcommand{\themename}{\textbf{\textsc{metropolis}}\xspace}
+
+% Custom colors for professional look
+\definecolor{primary}{RGB}{44, 62, 80}
+\definecolor{secondary}{RGB}{231, 76, 60}
+\setbeamercolor{palette primary}{bg=primary, fg=white}
+\setbeamercolor{title separator}{fg=secondary}
+\setbeamercolor{progress bar}{fg=secondary, bg=primary}
+
+% --- Meta Information ---
+\title{Financial Analytics}
+\subtitle{Modeling Success with Time Series and Portfolios}
+\date{\today}
+\author{Leonardo H. Talero-Sarmiento, Ph.D.}
+\institute{Unab - Data Science Project}
+
+\begin{document}
+
+\maketitle
+
+% --- Introduction ---
+\begin{frame}{The Big Question}
+    \begin{center}
+        \huge Can we predict the future of the market?
+    \end{center}
+    \vspace{0.5cm}
+    \begin{itemize}
+        \item Does the price follow a pattern, or is it just noise?
+        \item How do we manage the fear of volatility?
+        \item \textbf{Today:} We use Amazon (AMZN) to find the signal within the noise.
+    \end{itemize}
+\end{frame}
+
+% --- Step 1: Raw Data ---
+\begin{frame}{Step 1: The Raw Signal}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \textbf{Amazon (AMZN) 2020-2024}
+            \begin{itemize}
+                \item Prices are erratic.
+                \item They don't have a constant mean (Non-Stationary).
+                \item \textit{Question:} Is there a hidden order here?
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_price.png}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Step 2: Decomposition ---
+\begin{frame}{Step 2: Peeling the Onion (Decomposition)}
+    \begin{columns}
+        \begin{column}{0.4\textwidth}
+            Equations:
+            \[ Y_t = T_t + S_t + R_t \]
+            \begin{itemize}
+                \item \textbf{Trend ($T_t$)}: The long-term direction.
+                \item \textbf{Seasonal ($S_t$)}: The cycle.
+                \item \textbf{Residual ($R_t$)}: The stochastic part (The "Heartbeat").
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.6\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_decomposition.png}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Step 3: Forecasting ---
+\begin{frame}{Step 3: Looking Ahead (ARIMA)}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \textbf{ARIMA(p, d, q)}
+            \begin{itemize}
+                \item \textbf{AR}: Using the past.
+                \item \textbf{I}: Making it stationary.
+                \item \textbf{MA}: Correcting errors.
+            \end{itemize}
+            \[ \hat{y}_t = \mu + \sum \phi_i y_{t-i} + \sum \theta_j \epsilon_{t-j} \]
+            \textbf{Challenge:} Can we trust the red line?
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_arima.png}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Step 4: Portfolios ---
+\begin{frame}{Step 4: Don't Put All Eggs in One Basket}
+    \begin{center}
+        \textbf{Markowitz Portfolio Theory}
+    \end{center}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/portfolio_frontier.png}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            Minimize Risk: $\sigma_p^2 = w^T \Sigma w$ \\
+            Maximize Efficiency: $Sharpe = \frac{R_p - R_f}{\sigma_p}$
+            \begin{itemize}
+                \item \textbf{Red Star}: The "Sweet Spot" (Max Sharpe).
+                \item \textbf{Diversification}: Why MSFT + AMZN + GOOGL is better than just one.
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Conclusion ---
+\begin{frame}{Takeaways \& Action}
+    \begin{itemize}
+        \item \textbf{Conclusion}: Markets are partially predictable in the trend, but stochastic in the short term.
+        \item \textbf{Call to Action}: Use data, not emotions. Optimize your weights.
+        \item \textbf{Public Question}: Which factor do you think is harder to predict: Trend or Noise?
+    \end{itemize}
+    \begin{center}
+        \huge Thank You!
+        \vspace{0.3cm}
+        \large Questions?
+    \end{center}
+\end{frame}
+
+\end{document}
