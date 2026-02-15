@@ -1411,6 +1411,9 @@ elif page == "Finance (Stochastic Processes)":
                 st.markdown('**Minimum Volatility Portfolio weights:**')
                 st.dataframe(weights_for_idx(min_vol_idx).round(4).to_frame('weight'), width='stretch')
 
+                # Define weights for comparison
+                minvol_w = all_weights[min_vol_idx]
+
                 df_cum = pd.DataFrame({
                     'Equal-Weighted': (df_prices / df_prices.iloc[0]).mean(axis=1),
                     'MC Min-Vol': (df_prices * minvol_w).sum(axis=1) / (df_prices * minvol_w).sum(axis=1).iloc[0]
