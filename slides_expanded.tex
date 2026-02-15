@@ -171,22 +171,103 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{The Optimization Problem}
-    We want to find weights $w$ for each stock to minimize risk:
+% --- PORTFOLIO CONCEPT 1: RETURN ---
+\begin{frame}{1. Portfolio Return: The Weighted Average}
+    \begin{block}{The Daily Concept}
+        Think of your portfolio as a \textbf{smoothie}. If it's 60\% Banana (12\% sugar) and 40\% Kale (8\% sugar), your total sugar content is simply the weighted average of the ingredients.
+    \end{block}
     \vspace{0.3cm}
+    \textbf{The Equation:}
+    \[ E[R_p] = \sum_{i=1}^{n} w_i E[R_i] \]
+    \begin{itemize}
+        \item $w_i$: The "weight" (percentage of money in stock $i$).
+        \item $E[R_i]$: The expected return of stock $i$.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Portfolio Return: Numerical Example}
+    \textbf{Case Study: The Tech-Duo}
+    \vspace{0.4cm}
     \begin{columns}
         \begin{column}{0.5\textwidth}
-            \textbf{1. Portfolio Variance:}
-            \[ \sigma_p^2 = \sum \sum w_i w_j \sigma_{ij} = w^T \Sigma w \]
-            \textbf{2. Portfolio Return:}
-            \[ E[R_p] = \sum w_i E[R_i] \]
+            \begin{tabular}{lcc}
+                \toprule
+                Asset & Weight ($w$) & Return ($R$) \\
+                \midrule
+                Amazon & 60\% (0.6) & 15\% \\
+                Microsoft & 40\% (0.4) & 10\% \\
+                \bottomrule
+            \end{tabular}
         \end{column}
         \begin{column}{0.5\textwidth}
-            \textbf{The Objective:}
-            Maximize the **Sharpe Ratio**:
-            \[ S = \frac{E[R_p] - R_{risk\_free}}{\sigma_p} \]
+            \textbf{Calculations:}
+            \begin{align*}
+                R_p &= (0.6 \times 15\%) + (0.4 \times 10\%) \\
+                R_p &= 9\% + 4\% \\
+                \mathbf{R_p} &= \mathbf{13\%}
+            \end{align*}
         \end{column}
     \end{columns}
+    \vspace{0.4cm}
+    \textit{Insight:} You can "tune" your return by shifting money to the higher-performing asset.
+\end{frame}
+
+% --- PORTFOLIO CONCEPT 2: VARIANCE ---
+\begin{frame}{2. Portfolio Variance: The Danger of Co-movement}
+    \begin{block}{The Daily Concept}
+        Risk is not just the sum of variances. It depends on the \textbf{Correlation}. If you own two umbrella companies, they both fail when it's sunny. If you own an umbrella company AND a sunscreen company, you are protected!
+    \end{block}
+    \vspace{0.3cm}
+    \textbf{The Equation (Matrix Form):}
+    \[ \sigma_p^2 = w^T \Sigma w \]
+    \textbf{The Equation (2-Asset Form):}
+    \[ \sigma_p^2 = w_1^2\sigma_1^2 + w_2^2\sigma_2^2 + 2w_1w_2\mathrm{Cov}_{1,2} \]
+\end{frame}
+
+\begin{frame}{Portfolio Variance: Why 'Matching' Matters}
+    \textbf{Numerical Impact of Correlation ($\rho$)}
+    Imagine Asset A and B both have 20\% risk ($\sigma$).
+    \vspace{0.4cm}
+    \begin{itemize}
+        \item \textbf{Perfect Positive ($\rho = +1.0$)}: Risk is 20\%. No benefit to diversifying.
+        \item \textbf{No Correlation ($\rho = 0.0$)}: Risk drops to $\approx 14\%$.
+        \item \textbf{Perfect Negative ($\rho = -1.0$)}: Risk drops to \textbf{0\%}.
+    \end{itemize}
+    \vspace{0.3cm}
+    \begin{center}
+        \footnotesize \textit{Equation for Covariance: $\mathrm{Cov}_{1,2} = \rho_{1,2} \sigma_1 \sigma_2$}
+    \end{center}
+\end{frame}
+
+% --- PORTFOLIO CONCEPT 3: SHARPE RATIO ---
+\begin{frame}{3. The Sharpe Ratio: Reward vs. Pain}
+    \begin{block}{The Daily Concept}
+        Is a 20\% return good? Not if you had a 50\% chance of losing everything. The Sharpe Ratio measures the **Return per unit of Risk**.
+    \end{block}
+    \vspace{0.3cm}
+    \textbf{The Equation:}
+    \[ S = \frac{R_p - R_{risk\_free}}{\sigma_p} \]
+    \begin{itemize}
+        \item $R_p - R_f$: The "Excess Return" (The prize).
+        \item $\sigma_p$: The "Volatility" (The price you pay in stress/risk).
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{The Sharpe Ratio: Identifying the Winner}
+    \textbf{Numerical Comparison: Which Portfolio is better?}
+    \vspace{0.4cm}
+    \begin{center}
+        \begin{tabular}{lccc}
+            \toprule
+            Portfolio & Return & Volatility & \textbf{Sharpe Ratio} \\
+            \midrule
+            A (Aggressive) & 18\% & 25\% & $18/25 = 0.72$ \\
+            B (Optimized) & 12\% & 10\% & $12/10 = \mathbf{1.20}$ \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
+    \vspace{0.4cm}
+    \textbf{Analysis:} Portfolio B is "smarter." It's more efficient. It gives you 1.2 units of return for every unit of risk, while Portfolio A only gives 0.72!
 \end{frame}
 
 \begin{frame}{The Efficient Frontier}
