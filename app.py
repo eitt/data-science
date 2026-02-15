@@ -1341,6 +1341,31 @@ elif page == "Finance (Stochastic Processes)":
                 fig_prices = px.line(df_prices, labels={'value': 'Price', 'index': 'Date'})
                 st.plotly_chart(fig_prices, width='stretch')
 
+                with st.expander("🎓 Theoretical & Historical Foundations (Read for Context)"):
+                    st.markdown(r"""
+                    ### 1. Why Log Returns ($r_t$)?
+                    In finance, we prefer **Log Returns** over Simple Returns because:
+                    *   **Time Additivity**: The log-return over two periods is simply the sum of the log-returns of each period: $\ln(P_2/P_0) = \ln(P_2/P_1) + \ln(P_1/P_0)$.
+                    *   **Normality**: While prices cannot be negative and are often log-normally distributed, log-returns are more likely to follow a normal distribution, making them easier to model.
+                    *   **Scale Invariance**: They are less sensitive to the price level.
+                    
+                    ### 2. Annualization
+                    We multiply mean daily returns by **252** (approximate trading days in a year) and daily volatility by **$\sqrt{252}$**. 
+                    *   **Why?** This allows us to compare assets with different historical lengths on a common "per-year" basis. 
+                    *   **The Square Root Rule**: Variance scales linearly with time ($T$), so Standard Deviation (Volatility) scales with $\sqrt{T}$.
+                    
+                    ### 3. Stationarity & Stochastic Processes
+                    A **Stationary Process** is one whose statistical properties (mean, variance) do not change over time.
+                    *   **Price is NOT Stationary**: Stock prices usually exhibit trends (Random Walks with drift).
+                    *   **Returns ARE often Stationary**: This is why we perform most of our statistical analysis on returns. If a series is not stationary, your model's predictions may only be valid for the specific time window you trained on.
+                    
+                    ### 4. Markowitz Portfolio Theory (Modern Portfolio Theory)
+                    Developed by Harry Markowitz in 1952, this theory suggests that it is not enough to look at the expected risk and return of one particular stock. 
+                    *   **Diversification**: By investing in more than one stock, an investor can reap the benefits of diversification — specifically, a reduction in the risk of the portfolio.
+                    *   **Efficient Frontier**: The set of optimal portfolios that offer the highest expected return for a defined level of risk.
+                    *   **The Role of Correlation**: The "magic" of diversification depends on assets not moving perfectly together (Correlation < 1.0).
+                    """)
+
                 # --- Statistical properties: returns, volatility, correlation ---
                 st.subheader("Statistical Properties & Returns")
                 # Compute simple and log returns
