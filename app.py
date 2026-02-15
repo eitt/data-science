@@ -1416,6 +1416,25 @@ elif page == "Finance (Stochastic Processes)":
                     'sharpe': sharpe
                 })
 
+                st.markdown(r"""
+                ### 🎯 Optimization Strategies
+                
+                To find the best way to combine these assets, we look for two specific points on the **Efficient Frontier**:
+
+                1. **Global Minimum Volatility (Min Vol)** 📉:
+                   The portfolio that offers the absolute lowest risk (variance), regardless of the expected return. 
+                   Mathematically, we minimize:
+                   $$ \sigma_p^2 = w^T \Sigma w $$
+                   Subject to $\sum w_i = 1$.
+
+                2. **Maximum Sharpe Ratio (Max Sharpe)** 🏆:
+                   The portfolio with the highest **risk-adjusted return**. It represents the steepest "slope" from the risk-free rate to the efficient frontier.
+                   $$ \text{Sharpe Ratio} = \frac{E[R_p] - R_f}{\sigma_p} $$
+                   *(Here, we assume $R_f = 0$ for simplicity).*
+
+                The **Red Star** represents the Max Sharpe portfolio, and the **Black Star** represents the Minimum Volatility portfolio.
+                """)
+
                 # Find max sharpe and min vol
                 max_sharpe_idx = df_ports['sharpe'].idxmax()
                 min_vol_idx = df_ports['vol'].idxmin()
@@ -1449,10 +1468,18 @@ elif page == "Finance (Stochastic Processes)":
 
                 # --- NEW: Random Walk Comparison ---
                 st.subheader("Random Walk vs. Reality")
-                st.markdown("""
-                Is the market a **Random Walk**? Let's simulate a Geometric Brownian Motion (GBM) 
-                with the same drift and volatility as the selected ticker.
-                """)
+                with st.expander("📝 Theoretical Foundation: Geometric Brownian Motion (GBM)"):
+                    st.markdown(r"""
+                    The **Geometric Brownian Motion** is the standard model for stock prices in a continuous world. It assumes that returns are normally distributed and independent (the "Random Walk" hypothesis).
+                    
+                    **Stochastic Differential Equation (SDE):**
+                    $$ dS_t = \mu S_t dt + \sigma S_t dW_t $$
+                    
+                    *   **Drift ($\mu$):** The expected growth rate of the stock.
+                    *   **Volatility ($\sigma$):** The intensity of the random shocks ($dW_t$).
+                    
+                    In our simulation, we use your selected stock's actual annualized $\mu$ and $\sigma$ to see if the real price looks like a purely mathematical "random walk".
+                    """)
                 
                 analysis_ticker = st.selectbox("Ticker to analyze", options=df_prices.columns.tolist())
                 series = df_prices[analysis_ticker].dropna()
@@ -1478,12 +1505,16 @@ elif page == "Finance (Stochastic Processes)":
                 st.plotly_chart(fig_rw, width='stretch')
 
                 st.subheader("Decomposition & Stationarity")
-                st.markdown("""
-                We decompose the series into:
-                1. **Trend**: The long-term direction.
-                2. **Seasonal**: Periodic fluctuations (e.g., weekly cycles).
-                3. **Residual (Noise)**: The stochastic/random part.
-                """)
+                with st.expander("📝 Theoretical Foundation: Classical Decomposition"):
+                    st.markdown(r"""
+                    Time series are traditionally decomposed into four components ($Y_t = T_t + S_t + C_t + I_t$):
+                    1.  **Trend ($T_t$):** The long-term progression of the series.
+                    2.  **Seasonal ($S_t$):** Periodic fluctuations that repeat within a year (e.g., quarterly or monthly).
+                    3.  **Cyclical ($C_t$):** Longer-term patterns (like business cycles) often grouped with the trend.
+                    4.  **Irregular ($I_t$):** The random stochastic noise or "residuals."
+                    
+                    We use an **Additive Model** ($Y_t = T_t + S_t + I_t$) which assumes the components are independent of each other.
+                    """)
                 freq = st.selectbox("Decompose frequency (period)", options=[5, 21, 63, 252], index=1,
                                     help="5 ~ weekly, 21 ~ monthly, 63 ~ quarterly, 252 ~ annual")
                 try:
@@ -1506,7 +1537,15 @@ elif page == "Finance (Stochastic Processes)":
 
                 # ADF stationarity test
                 st.markdown("#### Augmented Dickey-Fuller (ADF) Test")
-                st.info("Stationarity means the mean and variance stay constant over time. Financial prices are usually NOT stationary, but returns are.")
+                with st.expander("📝 Theoretical Foundation: The ADF Test"):
+                    st.markdown(r"""
+                    The **Augmented Dickey-Fuller (ADF)** test checks if a time series has a "Unit Root," which would make it non-stationary.
+                    
+                    *   **Null Hypothesis ($H_0$):** The series is non-stationary (has a unit root).
+                    *   **Alternative Hypothesis ($H_1$):** The series is stationary.
+                    
+                    If the **p-value < 0.05**, we *reject* the null hypothesis and conclude the series is stationary. This is crucial for models like ARIMA, which require stationary data to produce reliable forecasts.
+                    """)
                 
                 test_col1, test_col2 = st.columns(2)
                 with test_col1:
@@ -1550,6 +1589,17 @@ elif page == "Finance (Stochastic Processes)":
                 st.plotly_chart(fig_filters, width='stretch')
 
                 st.subheader("Forecasting Approaches")
+                with st.expander("📝 Theoretical Foundation: ARIMA Models"):
+                    st.markdown(r"""
+                    The **ARIMA** (Auto-Regressive Integrated Moving Average) model is defined by three parameters:
+                    
+                    1.  **AR (p)**: *Autoregression*. Uses the relationship between an observation and a number of lagged observations.
+                    2.  **I (d)**: *Integration*. The number of times the raw observations are differencing to make the series stationary.
+                    3.  **MA (q)**: *Moving Average*. Uses the dependency between an observation and a residual error from a moving average model.
+                    
+                    We use **Auto-ARIMA**, which automatically searches for the best $(p, d, q)$ combination by minimizing the **Akaike Information Criterion (AIC)**.
+                    """)
+                
                 forecast_tabs = st.tabs(["Naive / Drift", "ARIMA (Advanced)"])
                 
                 with forecast_tabs[0]:
