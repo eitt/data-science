@@ -1,0 +1,307 @@
+\documentclass[aspectratio=169, 12pt]{beamer}
+
+% --- Theme and Colors ---
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+\usepackage{booktabs}
+\usepackage[scale=2]{ccicons}
+\usepackage{pgfplots}
+\usepgfplotslibrary{dateplot}
+\usepackage{xspace}
+\usepackage{amsmath}
+
+\definecolor{primary}{RGB}{44, 62, 80}
+\definecolor{secondary}{RGB}{231, 76, 60}
+\setbeamercolor{palette primary}{bg=primary, fg=white}
+\setbeamercolor{title separator}{fg=secondary}
+\setbeamercolor{progress bar}{fg=secondary, bg=primary}
+
+\title{Unlocking Financial Data}
+\subtitle{A Mathematical Journey Through Time Series \& Portfolios}
+\date{\today}
+\author{Leonardo H. Talero-Sarmiento, Ph.D.}
+\institute{Data Science for Finance}
+
+\begin{document}
+
+\maketitle
+
+% ==============================================================================
+% SECTION: TIME SERIES DECOMPOSITION
+% ==============================================================================
+\section{Part I: The Anatomy of a Stock Price}
+
+\begin{frame}{The Starting Point: Raw Price Data}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \textbf{What do we see here?}
+            \begin{itemize}
+                \item Chaos? Randomness?
+                \item This is Amazon (AMZN) from 2020.
+                \item \textit{Question:} If you only look at this, can you make a decision?
+                \item \textbf{Problem:} No constant mean, no constant variance.
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_price_solo.png}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{The Mathematical Framework}
+    We assume the price $Y_t$ is a sum of hidden forces:
+    \vspace{0.4cm}
+    \begin{block}{The Classical Model (Additive)}
+        \[ Y_t = T_t + S_t + R_t \]
+    \end{block}
+    \vspace{0.4cm}
+    \begin{itemize}
+        \item \textbf{Trend ($T_t$)}: Underlying growth (or decline).
+        \item \textbf{Seasonality ($S_t$)}: Periodic cycles (Weekly, Monthly).
+        \item \textbf{Residual ($R_t$)}: The "Heartbeat" or Stochastic Error.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Step 1: Extracting the Trend ($T_t$)}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_price_solo.png}
+            \begin{center}\footnotesize Original Price\end{center}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_trend_only.png}
+            \begin{center}\footnotesize The Trend\end{center}
+        \end{column}
+    \end{columns}
+    \vspace{0.3cm}
+    \textbf{Analysis:} By using a moving average window, we smooth out volatile days to see the long-term direction. 
+\end{frame}
+
+\begin{frame}{Step 2: Hunting for Cycles ($S_t$)}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_seasonal_only.png}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Is it predictable?}
+            \begin{itemize}
+                \item This pattern repeats every year.
+                \item Captures psychological market cycles or reporting periods.
+                \item If we subtract this and the Trend, what remains?
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Step 3: What is Left? ($R_t$)}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_resid_only.png}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{The Stochastic Soul}
+            \begin{itemize}
+                \item This is the "Noise."
+                \item Ideally, it should be **Stationary** (Mean $\approx 0$).
+                \item If there is a pattern here, our model is missing something.
+                \item \textit{Question:} Can we predict noise? (Hint: No,แต่ we can measure its risk).
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{The Complete Anatomical View}
+    \begin{center}
+        \includegraphics[width=0.65\textwidth]{assets/amzn_decomp_clean.png}
+    \end{center}
+\end{frame}
+
+% ==============================================================================
+% SECTION: MODELING & FORECASTING
+% ==============================================================================
+\section{Part II: Predicting the Unpredictable}
+
+\begin{frame}{How do we project forward?}
+    We use the \textbf{ARIMA} model. It assumes the current price depends on its own past.
+    \vspace{0.3cm}
+    \begin{block}{The ARIMA(p, d, q) Logic}
+        \[ y'_t = c + \phi_1 y'_{t-1} + \dots + \theta_1 \epsilon_{t-1} + \dots + \epsilon_t \]
+    \end{block}
+    \begin{itemize}
+        \item \textbf{p (AR)}: How many past days influence today?
+        \item \textbf{d (I)}: How many times do we "subtract" to find stationarity?
+        \item \textbf{q (MA)}: How much do past "surprises" (errors) matter?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Visualizing the Forecast}
+    \begin{columns}
+        \begin{column}{0.6\textwidth}
+            \includegraphics[width=\textwidth]{assets/amzn_arima.png}
+        \end{column}
+        \begin{column}{0.4\textwidth}
+            \textbf{The Reality Check}
+            \begin{itemize}
+                \item \textbf{Red Line}: The expectation.
+                \item \textbf{Shaded Area}: The uncertainty (95\% Confidence).
+                \item Notice how the cone widens as we go further!
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ==============================================================================
+% SECTION: PORTFOLIO THEORY
+% ==============================================================================
+\section{Part III: Modern Portfolio Theory (MPT)}
+
+\begin{frame}{From One Stock to a Universe}
+    \textbf{Why look at Correlation?}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \includegraphics[width=\textwidth]{assets/portfolio_corr.png}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \begin{itemize}
+                \item If assets move together (Corr = 1.0), diversification is useless.
+                \item If assets move differently (Corr < 0.5), we can "kill" risk.
+                \item \textit{Question:} Does AMZN move with MSFT? Usually, yes.
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- PORTFOLIO CONCEPT 1: RETURN ---
+\begin{frame}{1. Portfolio Return: The Weighted Average}
+    \begin{block}{The Daily Concept}
+        Think of your portfolio as a \textbf{smoothie}. If it's 60\% Banana (12\% sugar) and 40\% Kale (8\% sugar), your total sugar content is simply the weighted average of the ingredients.
+    \end{block}
+    \vspace{0.3cm}
+    \textbf{The Equation:}
+    \[ E[R_p] = \sum_{i=1}^{n} w_i E[R_i] \]
+    \begin{itemize}
+        \item $w_i$: The "weight" (percentage of money in stock $i$).
+        \item $E[R_i]$: The expected return of stock $i$.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Portfolio Return: Numerical Example}
+    \textbf{Case Study: The Tech-Duo}
+    \vspace{0.4cm}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \begin{tabular}{lcc}
+                \toprule
+                Asset & Weight ($w$) & Return ($R$) \\
+                \midrule
+                Amazon & 60\% (0.6) & 15\% \\
+                Microsoft & 40\% (0.4) & 10\% \\
+                \bottomrule
+            \end{tabular}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Calculations:}
+            \begin{align*}
+                R_p &= (0.6 \times 15\%) + (0.4 \times 10\%) \\
+                R_p &= 9\% + 4\% \\
+                \mathbf{R_p} &= \mathbf{13\%}
+            \end{align*}
+        \end{column}
+    \end{columns}
+    \vspace{0.4cm}
+    \textit{Insight:} You can "tune" your return by shifting money to the higher-performing asset.
+\end{frame}
+
+% --- PORTFOLIO CONCEPT 2: VARIANCE ---
+\begin{frame}{2. Portfolio Variance: The Danger of Co-movement}
+    \begin{block}{The Daily Concept}
+        Risk is not just the sum of variances. It depends on the \textbf{Correlation}. If you own two umbrella companies, they both fail when it's sunny. If you own an umbrella company AND a sunscreen company, you are protected!
+    \end{block}
+    \vspace{0.3cm}
+    \textbf{The Equation (Matrix Form):}
+    \[ \sigma_p^2 = w^T \Sigma w \]
+    \textbf{The Equation (2-Asset Form):}
+    \[ \sigma_p^2 = w_1^2\sigma_1^2 + w_2^2\sigma_2^2 + 2w_1w_2\mathrm{Cov}_{1,2} \]
+\end{frame}
+
+\begin{frame}{Portfolio Variance: Why 'Matching' Matters}
+    \textbf{Numerical Impact of Correlation ($\rho$)}
+    Imagine Asset A and B both have 20\% risk ($\sigma$).
+    \vspace{0.4cm}
+    \begin{itemize}
+        \item \textbf{Perfect Positive ($\rho = +1.0$)}: Risk is 20\%. No benefit to diversifying.
+        \item \textbf{No Correlation ($\rho = 0.0$)}: Risk drops to $\approx 14\%$.
+        \item \textbf{Perfect Negative ($\rho = -1.0$)}: Risk drops to \textbf{0\%}.
+    \end{itemize}
+    \vspace{0.3cm}
+    \begin{center}
+        \footnotesize \textit{Equation for Covariance: $\mathrm{Cov}_{1,2} = \rho_{1,2} \sigma_1 \sigma_2$}
+    \end{center}
+\end{frame}
+
+% --- PORTFOLIO CONCEPT 3: SHARPE RATIO ---
+\begin{frame}{3. The Sharpe Ratio: Reward vs. Pain}
+    \begin{block}{The Daily Concept}
+        Is a 20\% return good? Not if you had a 50\% chance of losing everything. The Sharpe Ratio measures the **Return per unit of Risk**.
+    \end{block}
+    \vspace{0.3cm}
+    \textbf{The Equation:}
+    \[ S = \frac{R_p - R_{risk\_free}}{\sigma_p} \]
+    \begin{itemize}
+        \item $R_p - R_f$: The "Excess Return" (The prize).
+        \item $\sigma_p$: The "Volatility" (The price you pay in stress/risk).
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{The Sharpe Ratio: Identifying the Winner}
+    \textbf{Numerical Comparison: Which Portfolio is better?}
+    \vspace{0.4cm}
+    \begin{center}
+        \begin{tabular}{lccc}
+            \toprule
+            Portfolio & Return & Volatility & \textbf{Sharpe Ratio} \\
+            \midrule
+            A (Aggressive) & 18\% & 25\% & $18/25 = 0.72$ \\
+            B (Optimized) & 12\% & 10\% & $12/10 = \mathbf{1.20}$ \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
+    \vspace{0.4cm}
+    \textbf{Analysis:} Portfolio B is "smarter." It's more efficient. It gives you 1.2 units of return for every unit of risk, while Portfolio A only gives 0.72!
+\end{frame}
+
+\begin{frame}{The Efficient Frontier}
+    \begin{columns}
+        \begin{column}{0.6\textwidth}
+            \includegraphics[width=\textwidth]{assets/portfolio_full_frontier.png}
+        \end{column}
+        \begin{column}{0.4\textwidth}
+            \textbf{Choosing your fighter:}
+            \begin{itemize}
+                \item \textbf{Black Cross}: Minimum Volatility (The "Safety First" choice).
+                \item \textbf{Red Star}: Maximum Sharpe (The "Smart Optimizer").
+                \item Any point below the curve is inefficient.
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ==============================================================================
+% CLOSING
+% ==============================================================================
+\begin{frame}{Summary \& Call to Action}
+    \begin{enumerate}
+        \item \textbf{Anatomize}: Don't look at price, look at its components ($T, S, R$).
+        \item \textbf{Optimize}: Don't pick stocks, pick portfolios ($w^T \Sigma w$).
+        \item \textbf{Quantify}: Uncertainty is a cone, not a line.
+    \end{enumerate}
+    \vspace{0.4cm}
+    \textbf{Question for you:} 
+    Thinking about AMZN's decomposition, do you think the 2024 price is driven more by **Trend** or by **Noise**?
+    \vspace{0.4cm}
+    \begin{center}
+        \huge Thank You!
+    \end{center}
+\end{frame}
+
+\end{document}
