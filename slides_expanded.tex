@@ -9,6 +9,8 @@
 \usepgfplotslibrary{dateplot}
 \usepackage{xspace}
 \usepackage{amsmath}
+\usepackage{graphicx} % <- needed for \includegraphics
+\usepackage{hyperref} % <- for clickable email
 
 \definecolor{primary}{RGB}{44, 62, 80}
 \definecolor{secondary}{RGB}{231, 76, 60}
@@ -16,15 +18,24 @@
 \setbeamercolor{title separator}{fg=secondary}
 \setbeamercolor{progress bar}{fg=secondary, bg=primary}
 
-\title{Unlocking Financial Data}
-\subtitle{A Mathematical Journey Through Time Series \& Portfolios}
+\title{Unlocking Decisions Based on Financial Data}
+\subtitle{Time Series \& Portfolios}
 \date{\today}
-\author{Leonardo H. Talero-Sarmiento, Ph.D.}
-\institute{Data Science for Finance}
+\author{Leonardo H. Talero-Sarmiento, Ph.D.\\\href{mailto:ltalero@unab.edu.co}{ltalero@unab.edu.co}}
+\institute{Introduction to Time-series Modeling in Finance \\ 
+\href{https://supervised-data-science.streamlit.app/}{Supervised Data Science App}}
+
+
+
 
 \begin{document}
 
 \maketitle
+
+% Full table of contents after title
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
 
 % ==============================================================================
 % SECTION: TIME SERIES DECOMPOSITION
@@ -58,7 +69,7 @@
     \begin{itemize}
         \item \textbf{Trend ($T_t$)}: Underlying growth (or decline).
         \item \textbf{Seasonality ($S_t$)}: Periodic cycles (Weekly, Monthly).
-        \item \textbf{Residual ($R_t$)}: The "Heartbeat" or Stochastic Error.
+        \item \textbf{Residual ($R_t$)}: The ``Heartbeat'' or stochastic error.
     \end{itemize}
 \end{frame}
 
@@ -74,7 +85,7 @@
         \end{column}
     \end{columns}
     \vspace{0.3cm}
-    \textbf{Analysis:} By using a moving average window, we smooth out volatile days to see the long-term direction. 
+    \textbf{Analysis:} By using a moving average window, we smooth out volatile days to see the long-term direction.
 \end{frame}
 
 \begin{frame}{Step 2: Hunting for Cycles ($S_t$)}
@@ -87,7 +98,7 @@
             \begin{itemize}
                 \item This pattern repeats every year.
                 \item Captures psychological market cycles or reporting periods.
-                \item If we subtract this and the Trend, what remains?
+                \item If we subtract this and the trend, what remains?
             \end{itemize}
         \end{column}
     \end{columns}
@@ -101,10 +112,10 @@
         \begin{column}{0.5\textwidth}
             \textbf{The Stochastic Soul}
             \begin{itemize}
-                \item This is the "Noise."
-                \item Ideally, it should be **Stationary** (Mean $\approx 0$).
+                \item This is the ``noise.''
+                \item Ideally, it should be stationary (mean $\approx 0$).
                 \item If there is a pattern here, our model is missing something.
-                \item \textit{Question:} Can we predict noise? (Hint: No,แต่ we can measure its risk).
+                \item \textit{Question:} Can we predict noise? (Hint: No, but we can measure its risk.)
             \end{itemize}
         \end{column}
     \end{columns}
@@ -129,8 +140,8 @@
     \end{block}
     \begin{itemize}
         \item \textbf{p (AR)}: How many past days influence today?
-        \item \textbf{d (I)}: How many times do we "subtract" to find stationarity?
-        \item \textbf{q (MA)}: How much do past "surprises" (errors) matter?
+        \item \textbf{d (I)}: How many times do we ``subtract'' to find stationarity?
+        \item \textbf{q (MA)}: How much do past surprises (errors) matter?
     \end{itemize}
 \end{frame}
 
@@ -143,8 +154,8 @@
             \textbf{The Reality Check}
             \begin{itemize}
                 \item \textbf{Red Line}: The expectation.
-                \item \textbf{Shaded Area}: The uncertainty (95\% Confidence).
-                \item Notice how the cone widens as we go further!
+                \item \textbf{Shaded Area}: The uncertainty (95\% confidence).
+                \item Notice how the cone widens as we go further.
             \end{itemize}
         \end{column}
     \end{columns}
@@ -156,7 +167,7 @@
 \section{Part III: Modern Portfolio Theory (MPT)}
 
 \begin{frame}{From One Stock to a Universe}
-    \textbf{Why look at Correlation?}
+    \textbf{Why look at correlation?}
     \begin{columns}
         \begin{column}{0.5\textwidth}
             \includegraphics[width=\textwidth]{assets/portfolio_corr.png}
@@ -164,24 +175,23 @@
         \begin{column}{0.5\textwidth}
             \begin{itemize}
                 \item If assets move together (Corr = 1.0), diversification is useless.
-                \item If assets move differently (Corr < 0.5), we can "kill" risk.
+                \item If assets move differently (Corr < 0.5), diversification reduces risk.
                 \item \textit{Question:} Does AMZN move with MSFT? Usually, yes.
             \end{itemize}
         \end{column}
     \end{columns}
 \end{frame}
 
-% --- PORTFOLIO CONCEPT 1: RETURN ---
 \begin{frame}{1. Portfolio Return: The Weighted Average}
     \begin{block}{The Daily Concept}
-        Think of your portfolio as a \textbf{smoothie}. If it's 60\% Banana (12\% sugar) and 40\% Kale (8\% sugar), your total sugar content is simply the weighted average of the ingredients.
+        Think of your portfolio as a \textbf{smoothie}. If it's 60\% banana (12\% sugar) and 40\% kale (8\% sugar), total sugar content is the weighted average.
     \end{block}
     \vspace{0.3cm}
     \textbf{The Equation:}
     \[ E[R_p] = \sum_{i=1}^{n} w_i E[R_i] \]
     \begin{itemize}
-        \item $w_i$: The "weight" (percentage of money in stock $i$).
-        \item $E[R_i]$: The expected return of stock $i$.
+        \item $w_i$: weight (portfolio share in asset $i$).
+        \item $E[R_i]$: expected return of asset $i$.
     \end{itemize}
 \end{frame}
 
@@ -209,13 +219,12 @@
         \end{column}
     \end{columns}
     \vspace{0.4cm}
-    \textit{Insight:} You can "tune" your return by shifting money to the higher-performing asset.
+    \textit{Insight:} Return shifts with weights.
 \end{frame}
 
-% --- PORTFOLIO CONCEPT 2: VARIANCE ---
 \begin{frame}{2. Portfolio Variance: The Danger of Co-movement}
     \begin{block}{The Daily Concept}
-        Risk is not just the sum of variances. It depends on the \textbf{Correlation}. If you own two umbrella companies, they both fail when it's sunny. If you own an umbrella company AND a sunscreen company, you are protected!
+        Risk is not just the sum of variances; it depends on \textbf{correlation}. If you own two umbrella companies, both suffer when it is sunny. If you own an umbrella company and a sunscreen company, risk is balanced.
     \end{block}
     \vspace{0.3cm}
     \textbf{The Equation (Matrix Form):}
@@ -224,32 +233,31 @@
     \[ \sigma_p^2 = w_1^2\sigma_1^2 + w_2^2\sigma_2^2 + 2w_1w_2\mathrm{Cov}_{1,2} \]
 \end{frame}
 
-\begin{frame}{Portfolio Variance: Why 'Matching' Matters}
+\begin{frame}{Portfolio Variance: Why Matching Matters}
     \textbf{Numerical Impact of Correlation ($\rho$)}
-    Imagine Asset A and B both have 20\% risk ($\sigma$).
+    Imagine Asset A and B both have 20\% volatility ($\sigma$).
     \vspace{0.4cm}
     \begin{itemize}
-        \item \textbf{Perfect Positive ($\rho = +1.0$)}: Risk is 20\%. No benefit to diversifying.
-        \item \textbf{No Correlation ($\rho = 0.0$)}: Risk drops to $\approx 14\%$.
-        \item \textbf{Perfect Negative ($\rho = -1.0$)}: Risk drops to \textbf{0\%}.
+        \item \textbf{Perfect positive ($\rho = +1.0$)}: risk is 20\%.
+        \item \textbf{No correlation ($\rho = 0.0$)}: risk drops to $\approx 14\%$.
+        \item \textbf{Perfect negative ($\rho = -1.0$)}: risk drops to \textbf{0\%}.
     \end{itemize}
     \vspace{0.3cm}
     \begin{center}
-        \footnotesize \textit{Equation for Covariance: $\mathrm{Cov}_{1,2} = \rho_{1,2} \sigma_1 \sigma_2$}
+        \footnotesize \textit{Covariance: $\mathrm{Cov}_{1,2} = \rho_{1,2} \sigma_1 \sigma_2$}
     \end{center}
 \end{frame}
 
-% --- PORTFOLIO CONCEPT 3: SHARPE RATIO ---
 \begin{frame}{3. The Sharpe Ratio: Reward vs. Pain}
     \begin{block}{The Daily Concept}
-        Is a 20\% return good? Not if you had a 50\% chance of losing everything. The Sharpe Ratio measures the **Return per unit of Risk**.
+        Is a 20\% return good? Not if the downside risk is extreme. The Sharpe ratio measures return per unit of risk.
     \end{block}
     \vspace{0.3cm}
     \textbf{The Equation:}
-    \[ S = \frac{R_p - R_{risk\_free}}{\sigma_p} \]
+    \[ S = \frac{R_p - R_f}{\sigma_p} \]
     \begin{itemize}
-        \item $R_p - R_f$: The "Excess Return" (The prize).
-        \item $\sigma_p$: The "Volatility" (The price you pay in stress/risk).
+        \item $R_p - R_f$: excess return.
+        \item $\sigma_p$: volatility.
     \end{itemize}
 \end{frame}
 
@@ -267,7 +275,7 @@
         \end{tabular}
     \end{center}
     \vspace{0.4cm}
-    \textbf{Analysis:} Portfolio B is "smarter." It's more efficient. It gives you 1.2 units of return for every unit of risk, while Portfolio A only gives 0.72!
+    \textbf{Analysis:} Portfolio B is more efficient.
 \end{frame}
 
 \begin{frame}{The Efficient Frontier}
@@ -278,9 +286,9 @@
         \begin{column}{0.4\textwidth}
             \textbf{Choosing your fighter:}
             \begin{itemize}
-                \item \textbf{Black Cross}: Minimum Volatility (The "Safety First" choice).
-                \item \textbf{Red Star}: Maximum Sharpe (The "Smart Optimizer").
-                \item Any point below the curve is inefficient.
+                \item \textbf{Black Cross}: minimum volatility.
+                \item \textbf{Red Star}: maximum Sharpe.
+                \item Points below the curve are inefficient.
             \end{itemize}
         \end{column}
     \end{columns}
@@ -289,19 +297,135 @@
 % ==============================================================================
 % CLOSING
 % ==============================================================================
-\begin{frame}{Summary \& Call to Action}
+\begin{frame}{Key Takeaways}
     \begin{enumerate}
-        \item \textbf{Anatomize}: Don't look at price, look at its components ($T, S, R$).
-        \item \textbf{Optimize}: Don't pick stocks, pick portfolios ($w^T \Sigma w$).
+        \item \textbf{Anatomize}: Do not look only at price; inspect components ($T, S, R$).
+        \item \textbf{Optimize}: Do not pick stocks; pick portfolios ($w^T \Sigma w$).
         \item \textbf{Quantify}: Uncertainty is a cone, not a line.
     \end{enumerate}
     \vspace{0.4cm}
-    \textbf{Question for you:} 
-    Thinking about AMZN's decomposition, do you think the 2024 price is driven more by **Trend** or by **Noise**?
+    \textbf{Question:}
+    Thinking about AMZN's decomposition, is the 2024 price driven more by trend or by noise?
     \vspace{0.4cm}
     \begin{center}
         \huge Thank You!
     \end{center}
 \end{frame}
+
+
+% ==============================================================================
+% SECTION: RESEARCH ROADMAP
+% ==============================================================================
+\section{Part IV: Research Roadmap}
+
+\begin{frame}{Current Articles Under Review and Revision}
+    
+    \textbf{1. Contemporary Social Science} 
+    \textit{“Brewing Degrowth: Regional Adaptations to COVID-19 in the Craft Beer Sector”} 
+    Status: Major Revision
+    
+    \vspace{0.4cm}
+    
+    \textbf{2. Sex Roles} \textit{“Moral Judgment through the Lens of Gender and Empathy: A Survey Experiment on Moral Foundations”} 
+    Status: Under Review
+    
+    \vspace{0.4cm}
+    
+    \textbf{3. Expert Systems With Applications} 
+    \textit{“A Rolling Two-Stage Stochastic Programming for Cocoa Irrigation Scheduling under Rainfall Uncertainty”} 
+    Status: Rejected – New Version in Preparation
+    
+    \vspace{0.4cm}
+    
+    \textbf{4. Behaviour \& Information Technology} 
+    \textit{“Comparative Study between Heuristic Evaluation Done by Human Experts vs NLP Agents”} 
+    Status: Under Review
+    
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% NEW PROJECTS – AGRICULTURE & OPTIMIZATION
+% ------------------------------------------------------------------------------
+
+\begin{frame}{Ongoing Projects: Agricultural Systems and Optimization}
+
+\textbf{1. Computers and Electronics in Agriculture (in preparation)} \\
+\textit{Tactical Harvest Planning in Olive Oil under Weather Uncertainty: 
+a Linear Stochastic Optimization Model with Scenarios Generated by Diffusion Models} \\
+Status: Experimental findings completed; manuscript in preparation.
+
+\vspace{0.4cm}
+
+\textbf{2. Agricultural Water Allocation (resubmission)} \\
+\textit{Modeling What Matters: A Dual-Phase Framework for Agricultural Water Allocation Based on a Systematic Review of Stochastic Programming Approaches} \\
+Status: Rejected; revised version in preparation.
+
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SOCIAL AND LABOR ECONOMICS
+% ------------------------------------------------------------------------------
+
+\begin{frame}{Ongoing Projects: Informality and Social Sustainability}
+
+\textbf{1. Employee Responsibilities and Rights Journal (second draft)} \\
+\textit{The Precarious Equilibrium: Unpaid Care, Territorial Gaps, and Economic Sustainability in Informal Footwear SMEs} \\
+Status: Second draft in progress.
+
+\vspace{0.4cm}
+
+\textbf{2. Agricultural Sustainability} \\
+\textit{Agricultural Sustainability Performance in the EU-27} \\
+Status: Experimental phase completed; drafting manuscript; target journal under identification (Agricultural Economics).
+
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% ENGINEERING & PREDICTIVE SYSTEMS
+% ------------------------------------------------------------------------------
+
+\begin{frame}{Ongoing Projects: Engineering and Predictive Modeling}
+
+\textbf{1. Measurement and Control (preliminary findings)} \\
+\textit{Hybrid Evolutionary Optimization for Turbofan Remaining Useful Life Prediction and Fractional-Order Control Tuning} \\
+Status: Preliminary findings completed. \\
+\vspace{0.4cm}
+\textbf{2. Journal of Management Decision } \\ 
+\textit{A multi-objective fuzzy Optimization model for Resource Management in an Emergency Department} \\
+Status: Finishing experimental phase and crafting first draft. 
+
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% MORALITY, MARKETING, AND BEHAVIOR
+% ------------------------------------------------------------------------------
+
+\begin{frame}{Ongoing Projects: Moral Cognition and Markets}
+
+\textbf{1. Marketing and Moral Foundations (beer advertising)} \\
+\textit{Moral Foundations Theory in Super Bowl Beer Marketing Ideation} \\
+Status: Working manuscript.
+
+\vspace{0.4cm}
+
+\textbf{2. Moral Psychology (submission in preparation)} \\
+\textit{Beyond Harm: How Distinct Empathy Components Shape Moral Severity} \\
+Status: Submission in preparation.
+
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% REGIONAL VIOLENCE AND SOCIAL ANALYSIS
+% ------------------------------------------------------------------------------
+
+\begin{frame}{Ongoing Projects: Violence and Social Perception}
+
+\textbf{1. Orquídeas Project – Norte de Santander} \\
+\textit{Violence Perception and Social Dynamics in Norte de Santander: Evidence from University Student Surveys} \\
+Status: Manuscript in development.
+
+\end{frame}
+
+
 
 \end{document}
